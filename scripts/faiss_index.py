@@ -3,27 +3,30 @@ import faiss
 import os
 
 # -----------------------------
+# -----------------------------
 # LOAD EMBEDDINGS
 # -----------------------------
 EMBEDDING_DIR = "embeddings"
 
-embeddings = np.load(
-    os.path.join(EMBEDDING_DIR, "image_embeddings.npy")
-)
-print("Loaded embeddings:", embeddings.shape)
+cls_embeddings = np.load(os.path.join(EMBEDDING_DIR, "cls_embeddings.npy"))
+mean_embeddings = np.load(os.path.join(EMBEDDING_DIR, "mean_embeddings.npy"))
+
+print(f"Loaded CLS embeddings: {cls_embeddings.shape}")
+print(f"Loaded Mean embeddings: {mean_embeddings.shape}")
 
 # -----------------------------
-# BUILD FAISS INDEX
+# BUILD FAISS INDICES
 # -----------------------------
-dim = embeddings.shape[1]
-index = faiss.IndexFlatIP(dim)  # Inner Product (cosine-ready)
+def build_and_save_index(embeddings, name):
+    dim = embeddings.shape[1]
+    index = faiss.IndexFlatIP(dim)
+    
+    faiss.normalize_L2(embeddings)
+    index.add(embeddings)
+    
+    output_path = os.path.join(EMBEDDING_DIR, f"{name}_index.faiss")
+    faiss.write_index(index, output_path)
+    print(f"✅ {name.upper()} index built and saved ({index.ntotal} vectors)")
 
-faiss.normalize_L2(embeddings)
-index.add(embeddings)
-
-# -----------------------------
-# SAVE INDEX
-# -----------------------------
-faiss.write_index(index, os.path.join(EMBEDDING_DIR, "image_index.faiss"))
-print("✅ FAISS index built and saved")
-print("Total vectors:", index.ntotal)
+build_and_save_index(cls_embeddings, "cls")
+build_and_save_index(mean_embeddings, "mean")

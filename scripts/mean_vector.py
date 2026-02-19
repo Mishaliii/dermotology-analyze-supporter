@@ -8,13 +8,13 @@ import os
 EMBEDDING_DIR = "embeddings"
 
 embeddings = np.load(
-    os.path.join(EMBEDDING_DIR, "image_embeddings.npy")
+    os.path.join(EMBEDDING_DIR, "mean_embeddings.npy")
 )
 labels = np.load(
     os.path.join(EMBEDDING_DIR, "image_labels.npy"),
     allow_pickle=True
 )
-print("Loaded embeddings:", embeddings.shape)
+print("Loaded mean embeddings:", embeddings.shape)
 print("Loaded labels:", len(labels))
 
 # -----------------------------

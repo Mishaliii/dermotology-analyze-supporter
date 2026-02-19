@@ -26,7 +26,8 @@ torch.set_grad_enabled(False)
 # =============================
 # STORAGE
 # =============================
-embeddings = []
+cls_embeddings = []
+mean_embeddings = []
 labels = []
 paths = []
 
@@ -51,24 +52,33 @@ for disease in sorted(os.listdir(DATA_DIR)):
         except:
             continue
 
-        inputs = processor(images=image, return_tensors="pt")
+        # Resize (squish) to 224x224 and disable processor's default cropping
+        image = image.resize((224, 224))
+        inputs = processor(images=image, return_tensors="pt", do_resize=False, do_center_crop=False)
         inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
 
         with torch.no_grad():
             outputs = model(**inputs)
-            emb = outputs.last_hidden_state.mean(dim=1)
+            # Extract BOTH CLS and Mean
+            cls_emb = outputs.last_hidden_state[:, 0, :]
+            mean_emb = outputs.last_hidden_state.mean(dim=1)
 
-        embeddings.append(emb.cpu().numpy())
+        cls_embeddings.append(cls_emb.cpu().numpy())
+        mean_embeddings.append(mean_emb.cpu().numpy())
         labels.append(disease)
         paths.append(img_path)
 
 # =============================
 # SAVE
 # =============================
-embeddings = np.vstack(embeddings)
+cls_embeddings = np.vstack(cls_embeddings)
+mean_embeddings = np.vstack(mean_embeddings)
 
-np.save(os.path.join(OUTPUT_DIR, "image_embeddings.npy"), embeddings)
+np.save(os.path.join(OUTPUT_DIR, "cls_embeddings.npy"), cls_embeddings)
+np.save(os.path.join(OUTPUT_DIR, "mean_embeddings.npy"), mean_embeddings)
 np.save(os.path.join(OUTPUT_DIR, "image_labels.npy"), np.array(labels))
 np.save(os.path.join(OUTPUT_DIR, "image_paths.npy"), np.array(paths))
 
-print("✅ Embeddings saved:", embeddings.shape)
+print("Embeddings saved:")
+print(f" - CLS Shape: {cls_embeddings.shape}")
+print(f" - Mean Shape: {mean_embeddings.shape}")
