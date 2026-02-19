@@ -255,6 +255,31 @@
             max-height: 92%;
             border-radius: 12px;
         }
+
+        /* NEW: Professional Floating Button */
+        .floating-action-btn {
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            /* Center content */
+            gap: 12px;
+            max-width: 100%;
+        }
+
+        .floating-action-btn:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.5);
+        }
     </style>
 </head>
 
@@ -307,14 +332,16 @@
 
         <div class="loader" id="loader"></div>
 
+        <!-- MOVED: Scoring Button Container (Upper Center) -->
+        <div id="scoring-btn-container" style="text-align:center; margin-bottom: 30px;"></div>
+
         <div class="results-grid" id="results-container" style="display:none;">
 
             <div class="method-card">
                 <div class="method-title">CLS Semantic Similarity</div>
                 <div class="method-subtitle">Vision Transformer CLS Token + kNN</div>
                 <div id="m1-diseases"></div>
-                <!-- NEW: Container for the scoring button to prevent duplicates -->
-                <div id="scoring-btn-container" style="margin: 15px 0;"></div>
+
                 <div class="section-title">Supporting Evidence</div>
                 <div id="m1-evidence"></div>
             </div>
@@ -412,9 +439,12 @@
 
                     renderResults(data);
 
-                    // Setup Scoring
-                    if (data.severity_assessment && data.severity_assessment.metrics) {
-                        setupScoringRef(data.severity_assessment);
+                    // Setup Scoring (Now supports multiple options)
+                    if (data.severity_assessments && data.severity_assessments.length > 0) {
+                        setupScoringRef(data.severity_assessments);
+                    } else if (data.severity_assessment && data.severity_assessment.metrics) {
+                        // Fallback for old API if needed
+                        setupScoringRef([data.severity_assessment]);
                     }
 
                     results.style.display = "grid";
@@ -429,72 +459,106 @@
                 .finally(() => loader.style.display = "none");
         }
 
-        // NEW: Scoring Logic
-        function setupScoringRef(data) {
+        // NEW: Scoring Logic (Supports Multiple)
+        function setupScoringRef(assessmentsList) {
             const btnContainer = document.getElementById("scoring-btn-container");
             if (!btnContainer) return;
 
-            // Clear any existing button
+            // Clear any existing buttons
             btnContainer.innerHTML = "";
 
-            const btn = document.createElement("button");
-            btn.className = "primary-btn";
-            btn.style.width = "100%";
-            btn.style.margin = "0";
-            btn.style.background = "#8b5cf6"; // Purple for AI
+            if (!assessmentsList || assessmentsList.length === 0) return;
 
-            btn.innerText = `Open ${data.disease} Calculator`;
+            // Create a wrapper for multiple buttons if needed
+            const wrapper = document.createElement("div");
+            wrapper.style.display = "flex";
+            wrapper.style.gap = "15px";
+            wrapper.style.justifyContent = "center";
+            wrapper.style.flexWrap = "wrap";
 
-            // Pass specific data
-            btn.onclick = () => openScoringModal(data);
+            assessmentsList.forEach(data => {
+                const btn = document.createElement("button");
+                btn.className = "floating-action-btn";
+                // Slightly smaller padding if multiple buttons
+                if (assessmentsList.length > 1) {
+                    btn.style.padding = "12px 24px";
+                    btn.style.fontSize = "0.95rem";
+                }
 
-            btnContainer.appendChild(btn);
+                // Professional Content with Badge
+                btn.innerHTML = `
+                    <span>${data.disease} Calc</span>
+                    <span style="background:rgba(255,255,255,0.25); padding:2px 8px; border-radius:10px; font-size:0.7rem;">AI</span>
+                `;
+
+                // Pass specific data
+                btn.onclick = () => openScoringModal(data);
+
+                wrapper.appendChild(btn);
+            });
+
+            btnContainer.appendChild(wrapper);
         }
 
         function openScoringModal(data) {
             if (data) currentScoringData = data;
             if (!currentScoringData) return;
             const d = currentScoringData;
-            const m = d.metrics;
+            const m = d.metrics || {}; // Metrics might be empty on error
             let html = "";
             let title = "";
 
             // Helpers
-            const rangeInput = (label, id, val, max = 4) => `
+            const safeVal = (v) => (v === undefined || v === null) ? 0 : v;
+            const safeLabel = (v) => (v === undefined || v === null) ? "?" : v;
+
+            // Updated: Calls calculateFinalScore() on change
+            const rangeInput = (label, id, rawVal, max = 4) => {
+                const val = safeVal(rawVal);
+                return `
                 <div style="margin-bottom:15px;">
                     <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">${label}</label>
                     <div style="display:flex; align-items:center; gap:10px;">
-                        <input type="range" min="0" max="${max}" value="${val}" id="${id}" style="flex:1" oninput="document.getElementById('out-${id}').innerText=this.value"> 
+                        <input type="range" min="0" max="${max}" value="${val}" id="${id}" style="flex:1" 
+                            oninput="document.getElementById('out-${id}').innerText=this.value; calculateFinalScore()"> 
                         <span id="out-${id}" style="font-weight:bold; width:20px;">${val}</span>
                     </div>
                 </div>
             `;
-            const numInput = (label, id, val) => `
+            };
+
+            // Updated: Added color:#333 and calculateFinalScore()
+            const numInput = (label, id, rawVal) => {
+                const val = safeVal(rawVal);
+                return `
                 <div style="margin-bottom:15px;">
                     <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">${label}</label>
-                    <input type="number" value="${val}" id="${id}" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                    <input type="number" value="${val}" id="${id}" 
+                        oninput="calculateFinalScore()"
+                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; color:#333; background: #fff;">
                 </div>
             `;
+            };
 
             // SCORING TEMPLATES
-            const dName = d.disease.toLowerCase();
+            const dName = d.disease ? d.disease.toLowerCase() : "";
 
             if (dName.includes("psoriasis")) {
                 title = "PASI Calculator (Psoriasis)";
-                html += rangeInput(`Erythema (Redness) [AI Est: ${m.erythema}]`, "pasi-e", m.erythema);
-                html += rangeInput(`Induration (Thickness) [AI Est: ${m.thickness}]`, "pasi-i", m.thickness);
-                html += rangeInput(`Desquamation (Scaling) [AI Est: ${m.scaling}]`, "pasi-d", m.scaling);
+                html += rangeInput(`Erythema (Redness) [AI Est: ${safeLabel(m.erythema)}]`, "pasi-e", m.erythema);
+                html += rangeInput(`Induration (Thickness) [AI Est: ${safeLabel(m.thickness)}]`, "pasi-i", m.thickness);
+                html += rangeInput(`Desquamation (Scaling) [AI Est: ${safeLabel(m.scaling)}]`, "pasi-d", m.scaling);
                 html += numInput("Body Area Score (0-6) [Clinical Input]", "pasi-a", 1);
 
             } else if (dName.includes("acne")) {
                 title = "GAGS Calculator (Acne)";
-                html += numInput(`Papules (Small Red) [AI Est: ${m.papules}]`, "gags-p", m.papules);
-                html += numInput(`Nodules (Large Red) [AI Est: ${m.nodules}]`, "gags-n", m.nodules);
-                html += numInput(`Comedones [AI Est: ${m.comedones}]`, "gags-c", m.comedones);
+                html += numInput(`Papules (Small Red) [AI Est: ${safeLabel(m.papules)}]`, "gags-p", m.papules);
+                html += numInput(`Nodules (Large Red) [AI Est: ${safeLabel(m.nodules)}]`, "gags-n", m.nodules);
+                html += numInput(`Comedones [AI Est: ${safeLabel(m.comedones)}]`, "gags-c", m.comedones);
                 html += `
                 <div style="margin-bottom:15px;">
                     <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">Location Factor</label>
-                    <select id="gags-loc" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                    <select id="gags-loc" onchange="calculateFinalScore()" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; color:#333; background:#fff;">
                         <option value="1">Face (x1)</option>
                         <option value="2">Chest/Back (x2)</option> 
                         <option value="3">Chest/Back Severe (x3)</option>
@@ -503,27 +567,27 @@
 
             } else if (dName.includes("dermatitis") || dName.includes("eczema")) {
                 title = "EASI Calculator (Atopic Dermatitis)";
-                html += rangeInput(`Erythema (Redness) [AI Est: ${m.erythema}]`, "easi-e", m.erythema, 3);
-                html += rangeInput(`Edema/Papulation [AI Est: ${m.edema}]`, "easi-ed", m.edema, 3);
-                html += rangeInput(`Excoriation (Scratching) [AI Est: ${m.excoriation}]`, "easi-ex", m.excoriation, 3);
-                html += rangeInput(`Lichenification [AI Est: ${m.lichenification}]`, "easi-l", m.lichenification, 3);
+                html += rangeInput(`Erythema (Redness) [AI Est: ${safeLabel(m.erythema)}]`, "easi-e", m.erythema, 3);
+                html += rangeInput(`Edema/Papulation [AI Est: ${safeLabel(m.edema)}]`, "easi-ed", m.edema, 3);
+                html += rangeInput(`Excoriation (Scratching) [AI Est: ${safeLabel(m.excoriation)}]`, "easi-ex", m.excoriation, 3);
+                html += rangeInput(`Lichenification [AI Est: ${safeLabel(m.lichenification)}]`, "easi-l", m.lichenification, 3);
                 html += numInput("Region Area (0-100%)", "easi-a", 10);
 
             } else if (dName.includes("vitiligo")) {
                 title = "VASI Calculator (Vitiligo)";
-                html += numInput(`Depigmentation % [AI Est: ${m.depigmentation_pct}%]`, "vasi-pct", m.depigmentation_pct);
+                html += numInput(`Depigmentation % [AI Est: ${safeLabel(m.depigmentation_pct)}%]`, "vasi-pct", m.depigmentation_pct);
                 html += numInput(`Hand Units (1 Unit = 1%)`, "vasi-hu", m.hand_units);
 
             } else if (dName.includes("melanoma") || dName.includes("nevus")) {
                 title = "ABCDE Risk Assessment";
-                html += rangeInput(`Asymmetry [AI Est: ${m.asymmetry}]`, "abcde-a", m.asymmetry, 10);
-                html += rangeInput(`Border Irregularity [AI Est: ${m.border}]`, "abcde-b", m.border, 10);
-                html += rangeInput(`Color Variance [AI Est: ${m.color}]`, "abcde-c", m.color, 10);
-                html += rangeInput(`Diameter Score [AI Est: ${m.diameter}]`, "abcde-d", m.diameter, 10);
+                html += rangeInput(`Asymmetry [AI Est: ${safeLabel(m.asymmetry)}]`, "abcde-a", m.asymmetry, 10);
+                html += rangeInput(`Border Irregularity [AI Est: ${safeLabel(m.border)}]`, "abcde-b", m.border, 10);
+                html += rangeInput(`Color Variance [AI Est: ${safeLabel(m.color)}]`, "abcde-c", m.color, 10);
+                html += rangeInput(`Diameter Score [AI Est: ${safeLabel(m.diameter)}]`, "abcde-d", m.diameter, 10);
                 html += `
                 <div style="margin-bottom:15px;">
                     <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">Evolution (History of Change)</label>
-                    <select id="abcde-e" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                    <select id="abcde-e" onchange="calculateFinalScore()" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; color:#333; background:#fff;">
                         <option value="0">No Change</option>
                         <option value="1">Changed</option>
                     </select>
@@ -531,11 +595,11 @@
 
             } else if (dName.includes("alopecia")) {
                 title = "SALT Calculator (Alopecia)";
-                html += numInput(`Hair Loss % [AI Est: ${m.hair_loss_pct}%]`, "salt-loss", m.hair_loss_pct);
+                html += numInput(`Hair Loss % [AI Est: ${safeLabel(m.hair_loss_pct)}%]`, "salt-loss", m.hair_loss_pct);
                 html += `
                 <div style="margin-bottom:15px;">
                     <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">Scalp Quadrant</label>
-                    <select id="salt-q" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                    <select id="salt-q" onchange="calculateFinalScore()" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; color:#333; background:#fff;">
                         <option value="18">Left Side (18%)</option>
                         <option value="18">Right Side (18%)</option>
                         <option value="40">Top (40%)</option>
@@ -557,7 +621,7 @@
 
         function calculateFinalScore() {
             if (!currentScoringData) return;
-            const d = currentScoringData.disease.toLowerCase();
+            const d = currentScoringData.disease ? currentScoringData.disease.toLowerCase() : "";
             let score = 0;
             let text = "";
 

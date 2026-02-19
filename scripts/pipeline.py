@@ -151,35 +151,63 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     image = Image.open(image_path).convert("RGB")
     cls_emb, mean_emb = embed_image(image)
 
+    # ---------------------------------------------------------
     # Method 1: CLS + Rank-Weighted kNN
+    # ---------------------------------------------------------
     m1_ranks, m1_cases = knn_vote(cls_emb, cls_index, knn_k=knn_k, search_k=search_k)
     
-    # Method 3: Mean + Rank-Weighted kNN (Done first to reuse neighbors for M2)
-    m3_ranks, m3_cases = knn_vote(mean_emb, mean_index, knn_k=knn_k, search_k=search_k)
-    
+    # ---------------------------------------------------------
     # Method 2: Mean + Cosine Similarity (Centroids)
+    # ---------------------------------------------------------
+    # 1. Predict Disease using Centroids
     m2_ranks = cosine_centroid_search(mean_emb)
     
-    # Find "Supporting Evidence" for Method 2 (Top Centroid Disease matches from M3 search)
+    # 2. Find Evidence (Similar Cases for the predicted disease)
+    # We perform a search specifically for this method's evidence, 
+    # filtering for the top predicted disease.
+    m2_top_disease = m2_ranks[0][0]
+    
+    # Normalized query for search
+    q_mean = mean_emb.copy()
+    faiss.normalize_L2(q_mean)
+    D, I = mean_index.search(q_mean, search_k)
+    
     m2_cases = []
-    top_centroid_disease = m2_ranks[0][0]
-    for case in m3_cases:
-        if case['disease'] == top_centroid_disease:
-            m2_cases.append(case)
-            if len(m2_cases) >= 5: break
+    # Look through the search results to find instances of the top predicted disease
+    for dist, idx in zip(D[0], I[0]):
+        disease = image_labels[idx]
+        if disease == m2_top_disease:
+            m2_cases.append({
+                "image_path": image_paths[idx],
+                "disease": disease,
+                "similarity": float(dist)
+            })
+            if len(m2_cases) >= 5: # Limit to top 5 evidence
+                break
+
+    # ---------------------------------------------------------
+    # Method 3: Mean + Rank-Weighted kNN (Texture)
+    # ---------------------------------------------------------
+    m3_ranks, m3_cases = knn_vote(mean_emb, mean_index, knn_k=knn_k, search_k=search_k)
             
-    # --- SEVERITY SCORING (New) ---
-    # Use the Top-1 result from Method 1 (CLS+KNN) as the primary diagnosis for scoring
-    primary_diagnosis = m1_ranks[0][0]
+    # --- SEVERITY SCORING ---
+    # Calculate score for ALL top diseases from Method 1
+    severity_assessments = []
+    
     try:
-        from scoring import get_visual_score
-        severity_data = get_visual_score(image_path, primary_diagnosis)
-    except ImportError:
-        print("WARNING: scoring.py not found.")
-        severity_data = {}
+        from scripts.scoring import get_visual_score
+        
+        for disease, _ in m1_ranks[:TOP_DISEASES]:
+            metrics = get_visual_score(image_path, disease)
+            severity_assessments.append({
+                "disease": disease,
+                "metrics": metrics
+            })
+            
+    except ImportError as e:
+        print(f"WARNING: scoring import failed: {e}")
     except Exception as e:
         print(f"SCORING ERROR: {e}")
-        severity_data = {}
 
     return {
         "cls_knn": {
@@ -188,7 +216,23 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
         },
         "mean_cosine": {
             "top_diseases": m2_ranks,
-            "similar_cases": m2_cases  # New: Supporting evidence
+            "similar_cases": m2_cases
+        },
+        "mean_knn": {
+            "top_diseases": m3_ranks[:TOP_DISEASES],
+            "similar_cases": m3_cases[:5]
+        },
+        "severity_assessments": severity_assessments 
+    }
+
+    return {
+        "cls_knn": {
+            "top_diseases": m1_ranks[:TOP_DISEASES],
+            "similar_cases": m1_cases[:5]
+        },
+        "mean_cosine": {
+            "top_diseases": m2_ranks,
+            "similar_cases": m2_cases
         },
         "mean_knn": {
             "top_diseases": m3_ranks[:TOP_DISEASES],

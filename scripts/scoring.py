@@ -50,6 +50,7 @@ def analyze_acne(image_cv):
     - Count red blobs (Papules/Nodules).
     - Count dark blobs (Comedones).
     """
+    print("[DEBUG] Analyzing Acne...")
     # Simple blob detector for red spots
     params = cv2.SimpleBlobDetector_Params()
     params.filterByColor = False
@@ -84,10 +85,11 @@ def analyze_acne(image_cv):
         elif area >= 100:
             nodules += 1
             
+    print(f"[DEBUG] Acne Found: Papules={papules}, Nodules={nodules}")
     return {
         "comedones": 0, # Hard to detect without zoom
         "papules": papules,
-        "nodules": modules_estimate := nodules,
+        "nodules": nodules,
         "score_preview": papules + (nodules * 2) 
     }
 
@@ -206,8 +208,11 @@ def get_visual_score(image_path, disease_name):
     Main entry point. Dispatches to specific function.
     """
     try:
+        print(f"[DEBUG] Scoring for {disease_name} on {image_path}")
         img = cv2.imread(image_path)
-        if img is None: return {}
+        if img is None: 
+            print("[DEBUG] Failed to load image")
+            return {}
         
         # Resize for consistent processing
         img = cv2.resize(img, (512, 512))
