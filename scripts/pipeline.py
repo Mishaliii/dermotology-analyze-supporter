@@ -13,7 +13,8 @@ MODEL_NAME = "facebook/dinov2-base"
 DEVICE = "cpu"
 EMBEDDING_DIR = "embeddings"
 
-KNN_K = 15          # how many neighbors to retrieve
+KNN_K = 15          # how many neighbors to retrieve for voting
+SEARCH_K = 50       # how many to retrieve for evidence context
 TOP_DISEASES = 2    # max diseases to report
 
 # =============================
@@ -24,9 +25,6 @@ model = AutoModel.from_pretrained(MODEL_NAME)
 model.eval().to(DEVICE)
 torch.set_grad_enabled(False)
 
-# =============================
-# LOAD DATA
-# =============================
 # =============================
 # LOAD DATA
 # =============================
@@ -52,27 +50,51 @@ disease_centroids = np.load(
 # =============================
 
 def embed_image(image: Image.Image):
-    """Returns (cls_embedding, mean_embedding)"""
-    # Resize (squish) to 224x224 and disable processor's default cropping
-    image = image.resize((224, 224))
-    inputs = processor(images=image, return_tensors="pt", do_resize=False, do_center_crop=False)
+    """
+    Returns (cls_embedding, mean_embedding) with Test Time Augmentation (TTA)
+    Averages embeddings from: Original, Flip, and Zoom.
+    """
+    # 1. Base Image (Squish Resize)
+    img_base = image.resize((224, 224))
+    
+    # 2. Horizontal Flip
+    img_flip = img_base.transpose(Image.FLIP_LEFT_RIGHT)
+    
+    # 3. 90% Zoom (Crop center 200x200 and resize back)
+    # 224 * 0.1 = ~22px margin. 224 - 22 = 202.
+    img_zoom = img_base.crop((22, 22, 202, 202)).resize((224, 224))
+    
+    # Process batch of 3
+    inputs = processor(images=[img_base, img_flip, img_zoom], return_tensors="pt", do_resize=False, do_center_crop=False)
     inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+    
     with torch.no_grad():
         outputs = model(**inputs)
     
-    cls_emb = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-    mean_emb = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
+    # Extract Embeddings (Batch Size = 3)
+    # CLS: [3, 768]
+    cls_batch = outputs.last_hidden_state[:, 0, :].cpu().numpy()
+    # Mean: [3, 768]
+    mean_batch = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
+    
+    # Average across the 3 views (TTA)
+    # Using keepdims=True ensures shape is (1, 768) instead of (768,)
+    # This is critical for FAISS compatibility.
+    cls_emb = cls_batch.mean(axis=0, keepdims=True)
+    mean_emb = mean_batch.mean(axis=0, keepdims=True)
+    
     return cls_emb, mean_emb
 
-
-def knn_vote(query_embedding: np.ndarray, index):
+def knn_vote(query_embedding: np.ndarray, index, knn_k=KNN_K, search_k=SEARCH_K):
     """
     Generic KNN voting with 'Top Match Bonus'
+    Searches deeper (search_k) for evidence, votes on top (knn_k).
     """
     q = query_embedding.copy()
     faiss.normalize_L2(q)
 
-    scores, indices = index.search(q, KNN_K)
+    # Search deeper to find evidence for Method 2
+    scores, indices = index.search(q, search_k)
 
     disease_votes = defaultdict(float)
     similar_cases = []
@@ -81,21 +103,23 @@ def knn_vote(query_embedding: np.ndarray, index):
         disease = image_labels[idx]
         score = float(sim)
         
-        # 'Champion Bonus': The single best match gets a huge boost
-        # If it's a near-duplicate (>0.90), it SHOULD win.
-        if i == 0:
-            if score > 0.90:
-                score += 10.0  # Massive bonus: 1-NN override
-            else:
-                score += 2.0   # Moderate bonus: priority
-            
-        disease_votes[disease] += score
-
+        # Collect ALL retrieved neighbors as potential evidence/context
         similar_cases.append({
             "image_path": image_paths[idx],
             "disease": disease,
             "similarity": float(sim)
         })
+
+        # VOTING LOGIC: Only count top knn_k neighbors
+        if i < knn_k:
+            # 'Champion Bonus': The single best match gets a huge boost
+            if i == 0:
+                if score > 0.90:
+                    score += 10.0  # Massive bonus: 1-NN override
+                else:
+                    score += 2.0   # Moderate bonus: priority
+                
+            disease_votes[disease] += score
 
     # Rank diseases by weighted vote
     ranked_diseases = sorted(
@@ -123,15 +147,15 @@ def cosine_centroid_search(query_embedding: np.ndarray):
     return ranked_diseases[:TOP_DISEASES]
 
 
-def analyze_skin_image(image_path: str):
+def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     image = Image.open(image_path).convert("RGB")
     cls_emb, mean_emb = embed_image(image)
 
     # Method 1: CLS + Rank-Weighted kNN
-    m1_ranks, m1_cases = knn_vote(cls_emb, cls_index)
+    m1_ranks, m1_cases = knn_vote(cls_emb, cls_index, knn_k=knn_k, search_k=search_k)
     
     # Method 3: Mean + Rank-Weighted kNN (Done first to reuse neighbors for M2)
-    m3_ranks, m3_cases = knn_vote(mean_emb, mean_index)
+    m3_ranks, m3_cases = knn_vote(mean_emb, mean_index, knn_k=knn_k, search_k=search_k)
     
     # Method 2: Mean + Cosine Similarity (Centroids)
     m2_ranks = cosine_centroid_search(mean_emb)
@@ -143,6 +167,19 @@ def analyze_skin_image(image_path: str):
         if case['disease'] == top_centroid_disease:
             m2_cases.append(case)
             if len(m2_cases) >= 5: break
+            
+    # --- SEVERITY SCORING (New) ---
+    # Use the Top-1 result from Method 1 (CLS+KNN) as the primary diagnosis for scoring
+    primary_diagnosis = m1_ranks[0][0]
+    try:
+        from scoring import get_visual_score
+        severity_data = get_visual_score(image_path, primary_diagnosis)
+    except ImportError:
+        print("WARNING: scoring.py not found.")
+        severity_data = {}
+    except Exception as e:
+        print(f"SCORING ERROR: {e}")
+        severity_data = {}
 
     return {
         "cls_knn": {
@@ -156,5 +193,9 @@ def analyze_skin_image(image_path: str):
         "mean_knn": {
             "top_diseases": m3_ranks[:TOP_DISEASES],
             "similar_cases": m3_cases[:5]
+        },
+        "severity_assessment": {
+            "disease": primary_diagnosis,
+            "metrics": severity_data
         }
     }
