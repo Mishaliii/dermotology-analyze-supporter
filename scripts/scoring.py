@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
-from PIL import Image
+from skimage.filters import frangi
+from skimage.morphology import skeletonize
 
 def analyze_psoriasis(image_cv):
     """
@@ -46,51 +47,45 @@ def analyze_psoriasis(image_cv):
 
 def analyze_acne(image_cv):
     """
-    GAGS Heuristics:
-    - Count red blobs (Papules/Nodules).
-    - Count dark blobs (Comedones).
+    GAGS Heuristics - Clinical Revision:
+    - GAGS does not sum lesions. It assigns a single Severity Grade per region
+      based on the most severe lesion present.
+    - Grades: 0=Clear, 1=Comedones, 2=Papules, 3=Pustules, 4=Nodules
     """
-    print("[DEBUG] Analyzing Acne...")
-    # Simple blob detector for red spots
-    params = cv2.SimpleBlobDetector_Params()
-    params.filterByColor = False
-    params.filterByArea = True
-    params.minArea = 15
-    params.maxArea = 500
-    params.filterByCircularity = True
-    params.minCircularity = 0.3
-    
-    detector = cv2.SimpleBlobDetector_create(params)
-    
     # Process Red Channel for inflammation
-    b, g, r = cv2.split(image_cv)
-    # Invert R to make red spots dark for detection? 
-    # Actually standard blob detection works on dark blobs on light background usually.
-    # Let's try thresholding red.
     hsv = cv2.cvtColor(image_cv, cv2.COLOR_BGR2HSV)
-    mask1 = cv2.inRange(hsv, np.array([0, 70, 50]), np.array([10, 255, 255])) # Red mask
+    mask1 = cv2.inRange(hsv, np.array([0, 70, 50]), np.array([10, 255, 255]))
     mask2 = cv2.inRange(hsv, np.array([170, 70, 50]), np.array([180, 255, 255]))
     red_mask = mask1 + mask2
     
     # Count connected components in red mask
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(red_mask)
     
-    # Filter by size
-    papules = 0
-    nodules = 0
+    # Analyze all blobs to find max severity
+    has_nodule = False
+    has_papule = False
+    
     for i in range(1, num_labels):
         area = stats[i, cv2.CC_STAT_AREA]
-        if 10 < area < 100:
-            papules += 1
-        elif area >= 100:
-            nodules += 1
+        if area >= 100:
+            has_nodule = True
+        elif 10 < area < 100:
+            has_papule = True
             
-    print(f"[DEBUG] Acne Found: Papules={papules}, Nodules={nodules}")
+    # Determine maximum grade present
+    max_grade = 0
+    if has_nodule:
+        max_grade = 4
+    elif has_papule:
+        max_grade = 2
+    else:
+        # Assuming 0 if no clear red inflammation (ignoring comedones for basic CV)
+        max_grade = 0
+        
     return {
-        "comedones": 0, # Hard to detect without zoom
-        "papules": papules,
-        "nodules": nodules,
-        "score_preview": papules + (nodules * 2) 
+        "max_severity_grade": max_grade,
+        "has_nodules": has_nodule,
+        "has_papules": has_papule
     }
 
 def analyze_eczema(image_cv):
@@ -98,15 +93,49 @@ def analyze_eczema(image_cv):
     # Re-use Psoriasis Redness/Thickness
     pso = analyze_psoriasis(image_cv)
     
-    # Scratch marks (Lines)
-    edges = cv2.Canny(image_cv, 50, 150)
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=50, minLineLength=30, maxLineGap=10)
-    scratch_score = min(3, int(len(lines)/5)) if lines is not None else 0
+    # Excoriation (Scratch marks) using Frangi Filter
+    gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+    img_float = gray.astype(np.float64) / 255.0
+    
+    # 1. Frangi Filter (detects continuous ridge/valley structures like scratches)
+    # Scratches are usually darker than surrounding skin in grayscale
+    ridges = frangi(img_float, sigmas=[1, 2, 3], black_ridges=True) 
+    
+    # 2. Threshold the ridge mask
+    if np.max(ridges) > 0:
+        ridges_norm = (ridges / np.max(ridges)) * 255
+    else:
+        ridges_norm = np.zeros_like(ridges)
+        
+    _, ridge_mask = cv2.threshold(ridges_norm.astype(np.uint8), 30, 255, cv2.THRESH_BINARY)
+    
+    # 3. Morphological Closing to connect broken scratch lines
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3))
+    closed_mask = cv2.morphologyEx(ridge_mask, cv2.MORPH_CLOSE, kernel)
+    
+    # 4. Skeletonize to get 1px wide scratch lines
+    skeleton = skeletonize(closed_mask > 0)
+    
+    # Calculate density relative to image area
+    h, w = gray.shape
+    total_area = h * w
+    scratch_pixels = np.sum(skeleton)
+    scratch_density = scratch_pixels / (total_area + 1e-5)
+    
+    # Map density (0.0 to ~0.02) to 0-3 clinical scale
+    if scratch_density > 0.015:
+        excoriation_score = 3
+    elif scratch_density > 0.005:
+        excoriation_score = 2
+    elif scratch_density > 0.001:
+        excoriation_score = 1
+    else:
+        excoriation_score = 0
     
     return {
         "erythema": pso['erythema'],
         "edema": pso['thickness'], # Proxy
-        "excoriation": scratch_score,
+        "excoriation": excoriation_score,
         "lichenification": pso['scaling'] # Proxy for roughness
     }
 
@@ -135,71 +164,164 @@ def analyze_vitiligo(image_cv):
     }
 
 def analyze_melanoma(image_cv):
-    """ ABCDE Rule Heuristics """
-    gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
-    ret, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    """ ABCDE Rule Heuristics - Clinical Revision """
     
-    # A: Asymmetry
-    M = cv2.moments(mask)
-    if M["m00"] == 0: return {"asymmetry":0, "border":0, "color":0, "diameter":0}
+    # 1. K-Means clustering in LAB color space for robust Masking
+    lab = cv2.cvtColor(image_cv, cv2.COLOR_BGR2LAB)
     
-    cX = int(M["m10"] / M["m00"])
-    cY = int(M["m01"] / M["m00"])
+    # Reshape for KMeans
+    pixel_values = lab.reshape((-1, 3))
+    pixel_values = np.float32(pixel_values)
     
-    # Bounding Box
-    x,y,w,h = cv2.boundingRect(mask)
-    center_box_x = x + w//2
-    center_box_y = y + h//2
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+    K = 2
+    _, labels, centers = cv2.kmeans(pixel_values, K, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
     
-    diff = np.sqrt((cX - center_box_x)**2 + (cY - center_box_y)**2)
-    asymmetry_score = min(10, int(diff / 5))
+    # The lesion is the dark region. L channel is center[:, 0].
+    # Which cluster has lower L?
+    if centers[0][0] < centers[1][0]:
+        lesion_cluster = 0
+    else:
+        lesion_cluster = 1
+        
+    mask = (labels == lesion_cluster).astype(np.uint8) * 255
+    mask = mask.reshape(image_cv.shape[:2])
     
-    # B: Border (Compactness)
+    # Clean up mask
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    
+    # Find bounding box
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if contours:
-        cnt = max(contours, key=cv2.contourArea)
-        perimeter = cv2.arcLength(cnt, True)
-        area = cv2.contourArea(cnt)
-        if area > 0:
-            compactness = (perimeter ** 2) / (4 * np.pi * area)
-            border_score = min(10, int(compactness - 1))
+    if not contours:
+        return {"asymmetry":0, "border":0, "color":0, "diameter":0}
+        
+    cnt = max(contours, key=cv2.contourArea)
+    x, y, w, h = cv2.boundingRect(cnt)
+    
+    # Crop mask to bounding box for A
+    lesion_roi = mask[y:y+h, x:x+w]
+    
+    # A: Asymmetry (Mirror Overlap)
+    if lesion_roi.size == 0 or cv2.countNonZero(lesion_roi) == 0:
+        asymmetry_score = 0
+    else:
+        # Flip horizontally
+        h_flip = cv2.flip(lesion_roi, 1)
+        h_xor = cv2.bitwise_xor(lesion_roi, h_flip)
+        h_asym = cv2.countNonZero(h_xor) / cv2.countNonZero(lesion_roi)
+        
+        # Flip vertically
+        v_flip = cv2.flip(lesion_roi, 0)
+        v_xor = cv2.bitwise_xor(lesion_roi, v_flip)
+        v_asym = cv2.countNonZero(v_xor) / cv2.countNonZero(lesion_roi)
+        
+        # Total asymmetry (0 to ~1)
+        total_asym_ratio = (h_asym + v_asym) / 2.0
+        if total_asym_ratio > 0.4:
+            asymmetry_score = 2
+        elif total_asym_ratio > 0.2:
+            asymmetry_score = 1
+        else:
+            asymmetry_score = 0
+
+    # B: Border
+    perimeter = cv2.arcLength(cnt, True)
+    area = cv2.contourArea(cnt)
+    if area > 0:
+        compactness = (perimeter ** 2) / (4 * np.pi * area)
+        # Compactness > 1 is irregular. Score 0-2
+        if compactness > 2.0:
+            border_score = 2
+        elif compactness > 1.3:
+            border_score = 1
         else:
             border_score = 0
     else:
         border_score = 0
         
-    # C: Color Var
-    mean, std = cv2.meanStdDev(image_cv, mask=mask)
-    color_var = np.mean(std) 
-    color_score = min(10, int(color_var / 5))
+    # C: Color Clusters
+    # Extract only lesion pixels in RGB
+    rgb = cv2.cvtColor(image_cv, cv2.COLOR_BGR2RGB)
+    lesion_pixels = rgb[mask == 255]
+    if len(lesion_pixels) > 10:
+        pixels_float = np.float32(lesion_pixels)
+        criteria_c = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+        # Try K=4 to find distinct color clusters
+        _, labels_c, _ = cv2.kmeans(pixels_float, 4, None, criteria_c, 10, cv2.KMEANS_RANDOM_CENTERS)
+        
+        # Count significant clusters (> 5% of lesion)
+        unique, counts = np.unique(labels_c, return_counts=True)
+        significant_clusters = np.sum(counts > (0.05 * len(lesion_pixels)))
+        
+        if significant_clusters >= 3:
+            color_score = 2
+        elif significant_clusters == 2:
+            color_score = 1
+        else:
+            color_score = 0
+    else:
+        color_score = 0
+        
+    # D: Diameter (relative to image)
+    img_h, img_w = image_cv.shape[:2]
+    relative_diameter = max(w, h) / max(img_w, img_h)
+    
+    if relative_diameter > 0.5:
+        diameter_score = 1
+    else:
+        diameter_score = 0
 
     return {
         "asymmetry": asymmetry_score,
         "border": border_score,
         "color": color_score,
-        "diameter": min(10, int(w/50)) # Relative pixels
+        "diameter": diameter_score
     }
 
 def analyze_alopecia(image_cv):
-    """ SALT: Hair Density """
-    # Texture analysis on gray
+    """ SALT: Hair Density - Clinical Revision """
     gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
     
-    # Edge density
+    # 1. Blur Detection (Laplacian Variance)
+    blur_variance = cv2.Laplacian(gray, cv2.CV_64F).var()
+    is_blurry = bool(blur_variance < 50)
+    
+    # 2. LAB K-Means for Segmentation (Hair vs Scalp)
+    lab = cv2.cvtColor(image_cv, cv2.COLOR_BGR2LAB)
+    pixel_values = lab.reshape((-1, 3))
+    pixel_values = np.float32(pixel_values)
+    
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+    _, labels, centers = cv2.kmeans(pixel_values, 2, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    
+    # Determine which cluster is hair (typically the darker L channel)
+    if centers[0][0] < centers[1][0]:
+        hair_cluster = 0
+    else:
+        hair_cluster = 1
+        
+    hair_pixels = np.sum(labels == hair_cluster)
+    total_pixels = labels.shape[0]
+    hair_area_ratio = hair_pixels / total_pixels
+    
+    # 3. Texture Density (Edges)
     edges = cv2.Canny(gray, 100, 200)
-    edge_density = np.mean(edges) / 255.0
+    texture_density = np.mean(edges) / 255.0
     
-    # Inverse logic: Low edge density -> Smooth Scalp -> Hair Loss
-    # High edge density -> Hair strands
+    # 4. Blended Presence Score
+    # Normalize texture density so strong texture brings it closer to 1
+    normalized_texture = min(1.0, texture_density * 5.0)
+    presence_score = (0.6 * hair_area_ratio) + (0.4 * normalized_texture)
     
-    loss_score = 0
-    if edge_density < 0.05: loss_score = 100 # Smooth
-    elif edge_density < 0.1: loss_score = 50
-    else: loss_score = 10
+    # Estimated loss
+    loss_score = max(0, min(100, (1.0 - presence_score) * 100))
     
     return {
-        "hair_loss_pct": loss_score,
-        "scalp_coverage": 100 - loss_score
+        "hair_loss_pct": round(loss_score, 1),
+        "is_blurry": is_blurry,
+        "blur_variance": round(blur_variance, 1)
     }
 
 

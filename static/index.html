@@ -280,6 +280,140 @@
             transform: translateY(-4px) scale(1.02);
             box-shadow: 0 20px 40px rgba(99, 102, 241, 0.5);
         }
+
+        /* NEW: Regional Tabs UI */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            color: var(--muted);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            font-weight: 700;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* NEW: Beautiful Manual Calculator Cards */
+        .manual-calc-card {
+            background: white;
+            border: 2px solid transparent;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+        }
+
+        .manual-calc-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .manual-calc-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-color: #e2e8f0;
+        }
+
+        .manual-calc-card:hover::before {
+            opacity: 1;
+        }
+
+        .manual-calc-card .calc-name {
+            font-weight: 800;
+            color: #1e293b;
+            font-size: 1.25rem;
+            letter-spacing: -0.025em;
+        }
+
+        .manual-calc-card .calc-desc {
+            color: #64748b;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        /* NEW: Webkit Range Slider Styling with Auto-Fill */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+            background: #e2e8f0;
+            /* Default track color */
+            margin: 10px 0;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            border: 3px solid white;
+        }
+
+        input[type=range]::-moz-range-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
     </style>
 </head>
 
@@ -445,6 +579,9 @@
                     } else if (data.severity_assessment && data.severity_assessment.metrics) {
                         // Fallback for old API if needed
                         setupScoringRef([data.severity_assessment]);
+                    } else {
+                        // NEW: Always show manual button if no assessments
+                        setupScoringRef([]);
                     }
 
                     results.style.display = "grid";
@@ -467,7 +604,7 @@
             // Clear any existing buttons
             btnContainer.innerHTML = "";
 
-            if (!assessmentsList || assessmentsList.length === 0) return;
+            window.lastAssessmentsList = assessmentsList || [];
 
             // Create a wrapper for multiple buttons if needed
             const wrapper = document.createElement("div");
@@ -476,28 +613,92 @@
             wrapper.style.justifyContent = "center";
             wrapper.style.flexWrap = "wrap";
 
-            assessmentsList.forEach(data => {
-                const btn = document.createElement("button");
-                btn.className = "floating-action-btn";
-                // Slightly smaller padding if multiple buttons
-                if (assessmentsList.length > 1) {
-                    btn.style.padding = "12px 24px";
-                    btn.style.fontSize = "0.95rem";
-                }
+            if (window.lastAssessmentsList.length > 0) {
+                window.lastAssessmentsList.forEach(data => {
+                    const btn = document.createElement("button");
+                    btn.className = "floating-action-btn";
+                    // Slightly smaller padding if multiple buttons
+                    if (window.lastAssessmentsList.length > 1) {
+                        btn.style.padding = "12px 24px";
+                        btn.style.fontSize = "0.95rem";
+                    }
 
-                // Professional Content with Badge
-                btn.innerHTML = `
-                    <span>${data.disease} Calc</span>
-                    <span style="background:rgba(255,255,255,0.25); padding:2px 8px; border-radius:10px; font-size:0.7rem;">AI</span>
-                `;
+                    // Professional Content with Badge
+                    btn.innerHTML = `
+                        <span>${data.disease} Calc</span>
+                        <span style="background:rgba(255,255,255,0.25); padding:2px 8px; border-radius:10px; font-size:0.7rem;">AI</span>
+                    `;
 
-                // Pass specific data
-                btn.onclick = () => openScoringModal(data);
+                    // Pass specific data
+                    btn.onclick = () => openScoringModal(data);
 
-                wrapper.appendChild(btn);
-            });
+                    wrapper.appendChild(btn);
+                });
+            }
+
+            // NEW: Add a manual calculator menu button for edge cases
+            const manualBtn = document.createElement("button");
+            manualBtn.className = "floating-action-btn";
+            manualBtn.style.background = "linear-gradient(135deg, #475569, #1e293b)"; // dark theme
+            if (window.lastAssessmentsList.length > 1) {
+                manualBtn.style.padding = "12px 24px";
+                manualBtn.style.fontSize = "0.95rem";
+            }
+            manualBtn.innerHTML = `
+                <span>All Calculators</span>
+                <span style="background:rgba(255,255,255,0.25); padding:2px 8px; border-radius:10px; font-size:0.7rem;">Manual</span>
+            `;
+            manualBtn.onclick = () => openManualMenu();
+            wrapper.appendChild(manualBtn);
 
             btnContainer.appendChild(wrapper);
+        }
+
+        function openManualMenu() {
+            const menuHtml = `
+                <div style="text-align:center; padding-bottom: 20px; border-bottom: 2px solid #f1f5f9; margin-bottom: 25px;">
+                    <h3 style="margin:0; color:#0f172a; font-size:1.6rem; font-weight:800; letter-spacing:-0.5px;">Clinical Calculators</h3>
+                    <p style="margin:8px 0 0 0; color:#64748b; font-size:0.95rem;">Select an assessment to manually grade this case.</p>
+                </div>
+                <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
+                    <button class="manual-calc-card" onclick="openManualCalc('Psoriasis')">
+                        <div class="calc-name">PASI</div>
+                        <div class="calc-desc">Psoriasis Area & Severity</div>
+                    </button>
+                    <button class="manual-calc-card" onclick="openManualCalc('Acne')">
+                        <div class="calc-name">GAGS</div>
+                        <div class="calc-desc">Acne Grading System</div>
+                    </button>
+                    <button class="manual-calc-card" onclick="openManualCalc('Eczema')">
+                        <div class="calc-name">EASI</div>
+                        <div class="calc-desc">Atopic Dermatitis Extent</div>
+                    </button>
+                    <button class="manual-calc-card" onclick="openManualCalc('Vitiligo')">
+                        <div class="calc-name">VASI</div>
+                        <div class="calc-desc">Vitiligo Area Scoring</div>
+                    </button>
+                    <button class="manual-calc-card" onclick="openManualCalc('Melanoma')">
+                        <div class="calc-name">ABCDE</div>
+                        <div class="calc-desc">Melanoma Risk Checklist</div>
+                    </button>
+                    <button class="manual-calc-card" onclick="openManualCalc('Alopecia')">
+                        <div class="calc-name">SALT</div>
+                        <div class="calc-desc">Severity of Alopecia</div>
+                    </button>
+                </div>
+            `;
+            scoringContent.innerHTML = menuHtml;
+            document.getElementById("final-score-display").innerText = "";
+            scoringModal.style.display = "flex";
+        }
+
+        function openManualCalc(diseaseName) {
+            let existingData = null;
+            if (window.lastAssessmentsList) {
+                existingData = window.lastAssessmentsList.find(a => a.disease.toLowerCase().includes(diseaseName.toLowerCase()));
+            }
+            const dataToPass = existingData || { disease: diseaseName, metrics: {} };
+            openScoringModal(dataToPass);
         }
 
         function openScoringModal(data) {
@@ -510,32 +711,68 @@
 
             // Helpers
             const safeVal = (v) => (v === undefined || v === null) ? 0 : v;
-            const safeLabel = (v) => (v === undefined || v === null) ? "?" : v;
+            const safeLabel = (v) => (v === undefined || v === null) ? "" : ` [AI Est: ${v}]`;
 
-            // Updated: Calls calculateFinalScore() on change
-            const rangeInput = (label, id, rawVal, max = 4) => {
+            // JS HELPERS
+            window.switchTab = function (prefix, tabId, element) {
+                const modal = document.getElementById("scoring-modal");
+                modal.querySelectorAll(`[id^="${prefix}-content-"]`).forEach(el => el.classList.remove("active"));
+                element.parentElement.querySelectorAll('.tab').forEach(el => el.classList.remove("active"));
+                document.getElementById(`${prefix}-content-${tabId}`).classList.add("active");
+                element.classList.add("active");
+            };
+
+            const generateTabs = (prefix, contentFn) => {
+                const regions = [
+                    { id: "head", label: "Head/Neck" },
+                    { id: "upper", label: "Upper Limbs" },
+                    { id: "trunk", label: "Trunk" },
+                    { id: "lower", label: "Lower Limbs" }
+                ];
+                let tabsHtml = `<div class="tabs">`;
+                let contentHtml = `<div class="tabs-container">`;
+                regions.forEach((r, i) => {
+                    const active = i === 0 ? "active" : "";
+                    tabsHtml += `<div class="tab ${active}" onclick="window.switchTab('${prefix}', '${r.id}', this)">${r.label}</div>`;
+                    contentHtml += `<div id="${prefix}-content-${r.id}" class="tab-content ${active}">${contentFn(r.id)}</div>`;
+                });
+                return tabsHtml + `</div>` + contentHtml + `</div>`;
+            };
+
+            // Updated: Calls calculateFinalScore() on change, added tooltip and dynamic inline background
+            const rangeInput = (label, toolTip, id, rawVal, max = 4) => {
                 const val = safeVal(rawVal);
+                const perc = max > 0 ? (val / max) * 100 : 0;
                 return `
                 <div style="margin-bottom:15px;">
-                    <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">${label}</label>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <input type="range" min="0" max="${max}" value="${val}" id="${id}" style="flex:1" 
-                            oninput="document.getElementById('out-${id}').innerText=this.value; calculateFinalScore()"> 
-                        <span id="out-${id}" style="font-weight:bold; width:20px;">${val}</span>
+                    <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:8px;">
+                        <strong>${label}</strong>
+                        <span style="font-size: 0.75rem; color:#94a3b8; font-weight:normal; margin-left:5px;">${toolTip}</span>
+                    </label>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:0.8rem; color:#94a3b8; font-weight:bold;">0</span>
+                        <input type="range" min="0" max="${max}" value="${val}" id="${id}" style="flex:1; background: linear-gradient(to right, #0ea5e9 ${perc}%, #e2e8f0 ${perc}%);" 
+                            oninput="
+                                this.style.background = 'linear-gradient(to right, #0ea5e9 ' + (this.value/this.max)*100 + '%, #e2e8f0 ' + (this.value/this.max)*100 + '%)';
+                                document.getElementById('out-${id}').innerText=this.value; 
+                                calculateFinalScore();
+                            "> 
+                        <span style="font-size:0.8rem; color:#94a3b8; font-weight:bold;">${max}</span>
+                        <span id="out-${id}" style="font-weight:bold; width:30px; text-align:right; color:#0ea5e9; font-size:1.2rem;">${val}</span>
                     </div>
                 </div>
             `;
             };
 
-            // Updated: Added color:#333 and calculateFinalScore()
-            const numInput = (label, id, rawVal) => {
-                const val = safeVal(rawVal);
+            // Updated: Provide default value to not multiply by 0
+            const numInput = (label, id, rawVal, max = 100) => {
+                let val = (rawVal === undefined || rawVal === null) ? 1 : rawVal;
                 return `
                 <div style="margin-bottom:15px;">
                     <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">${label}</label>
-                    <input type="number" value="${val}" id="${id}" 
+                    <input type="number" min="0" max="${max}" value="${val}" id="${id}" 
                         oninput="calculateFinalScore()"
-                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; color:#333; background: #fff;">
+                        style="width:100%; padding:9px; border:1px solid #ccc; border-radius:8px; color:#333; background: #fff; font-size:1rem;">
                 </div>
             `;
             };
@@ -545,70 +782,108 @@
 
             if (dName.includes("psoriasis")) {
                 title = "PASI Calculator (Psoriasis)";
-                html += rangeInput(`Erythema (Redness) [AI Est: ${safeLabel(m.erythema)}]`, "pasi-e", m.erythema);
-                html += rangeInput(`Induration (Thickness) [AI Est: ${safeLabel(m.thickness)}]`, "pasi-i", m.thickness);
-                html += rangeInput(`Desquamation (Scaling) [AI Est: ${safeLabel(m.scaling)}]`, "pasi-d", m.scaling);
-                html += numInput("Body Area Score (0-6) [Clinical Input]", "pasi-a", 1);
+                html += generateTabs("pasi", (rId) => {
+                    let c = rangeInput(`Erythema${safeLabel(m.erythema)}`, "(Redness)", `pasi-e-${rId}`, rId === "head" ? m.erythema : 0);
+                    c += rangeInput(`Induration${safeLabel(m.thickness)}`, "(Thickness)", `pasi-i-${rId}`, rId === "head" ? m.thickness : 0);
+                    c += rangeInput(`Scaling${safeLabel(m.scaling)}`, "(Flaking)", `pasi-d-${rId}`, rId === "head" ? m.scaling : 0);
+                    c += numInput("Area Score (0-6)", `pasi-a-${rId}`, 1, 6); // default to 1
+                    return c;
+                });
 
             } else if (dName.includes("acne")) {
                 title = "GAGS Calculator (Acne)";
-                html += numInput(`Papules (Small Red) [AI Est: ${safeLabel(m.papules)}]`, "gags-p", m.papules);
-                html += numInput(`Nodules (Large Red) [AI Est: ${safeLabel(m.nodules)}]`, "gags-n", m.nodules);
-                html += numInput(`Comedones [AI Est: ${safeLabel(m.comedones)}]`, "gags-c", m.comedones);
-                html += `
-                <div style="margin-bottom:15px;">
-                    <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">Location Factor</label>
-                    <select id="gags-loc" onchange="calculateFinalScore()" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; color:#333; background:#fff;">
-                        <option value="1">Face (x1)</option>
-                        <option value="2">Chest/Back (x2)</option> 
-                        <option value="3">Chest/Back Severe (x3)</option>
-                    </select>
-                </div>`;
+                const estSev = safeVal(m.max_severity_grade);
+                const gagsRegions = [
+                    { id: "fh", label: "Forehead (x2)", factor: 2 },
+                    { id: "rc", label: "Right Cheek (x2)", factor: 2 },
+                    { id: "lc", label: "Left Cheek (x2)", factor: 2 },
+                    { id: "no", label: "Nose (x1)", factor: 1 },
+                    { id: "ch", label: "Chin (x1)", factor: 1 },
+                    { id: "cb", label: "Chest/Back (x3)", factor: 3 }
+                ];
+                let gagsHtml = `
+                    <div style="font-size:0.85rem; color:#64748b; margin-bottom:15px; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+                        <strong>Rule:</strong> Select the MOST SEVERE lesion present in each region. Max Score is 44.
+                        ${m.max_severity_grade !== undefined ? `<br><br><span style="padding:4px 8px; background:#e0f2fe; color:#0369a1; border-radius:4px;">AI spotted a severity grade of <b>${estSev}</b> in the image</span>` : ''}
+                    </div>
+                `;
+                gagsRegions.forEach(r => {
+                    gagsHtml += `
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">${r.label}</label>
+                        <select id="gags-sev-${r.id}" data-factor="${r.factor}" onchange="calculateFinalScore()" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; color:#333; background:#fff;">
+                            <option value="0" ${estSev === 0 ? 'selected' : ''}>0 - Clear</option>
+                            <option value="1" ${estSev === 1 ? 'selected' : ''}>1 - Comedones</option>
+                            <option value="2" ${estSev === 2 ? 'selected' : ''}>2 - Papules</option>
+                            <option value="3" ${estSev === 3 ? 'selected' : ''}>3 - Pustules</option>
+                            <option value="4" ${estSev === 4 ? 'selected' : ''}>4 - Nodules</option>
+                        </select>
+                    </div>`;
+                });
+                html += gagsHtml;
 
             } else if (dName.includes("dermatitis") || dName.includes("eczema")) {
                 title = "EASI Calculator (Atopic Dermatitis)";
-                html += rangeInput(`Erythema (Redness) [AI Est: ${safeLabel(m.erythema)}]`, "easi-e", m.erythema, 3);
-                html += rangeInput(`Edema/Papulation [AI Est: ${safeLabel(m.edema)}]`, "easi-ed", m.edema, 3);
-                html += rangeInput(`Excoriation (Scratching) [AI Est: ${safeLabel(m.excoriation)}]`, "easi-ex", m.excoriation, 3);
-                html += rangeInput(`Lichenification [AI Est: ${safeLabel(m.lichenification)}]`, "easi-l", m.lichenification, 3);
-                html += numInput("Region Area (0-100%)", "easi-a", 10);
+                html += generateTabs("easi", (rId) => {
+                    let c = rangeInput(`Erythema${safeLabel(m.erythema)}`, "(Redness)", `easi-e-${rId}`, rId === "head" ? m.erythema : 0, 3);
+                    c += rangeInput(`Edema/Papules${safeLabel(m.edema)}`, "(Swelling/Bumps)", `easi-ed-${rId}`, rId === "head" ? m.edema : 0, 3);
+                    c += rangeInput(`Excoriation${safeLabel(m.excoriation)}`, "(Scratch marks)", `easi-ex-${rId}`, rId === "head" ? m.excoriation : 0, 3);
+                    c += rangeInput(`Lichenification${safeLabel(m.lichenification)}`, "(Leathery thickening)", `easi-l-${rId}`, rId === "head" ? m.lichenification : 0, 3);
+                    c += numInput("Area Score (0-6)", `easi-a-${rId}`, 1, 6); // default to 1
+                    return c;
+                });
 
             } else if (dName.includes("vitiligo")) {
                 title = "VASI Calculator (Vitiligo)";
-                html += numInput(`Depigmentation % [AI Est: ${safeLabel(m.depigmentation_pct)}%]`, "vasi-pct", m.depigmentation_pct);
-                html += numInput(`Hand Units (1 Unit = 1%)`, "vasi-hu", m.hand_units);
+                let defDepig = m.depigmentation_pct !== undefined ? m.depigmentation_pct : 10;
+                let defHu = m.hand_units !== undefined ? m.hand_units : 1;
+                html += numInput(`Depigmentation %${safeLabel(m.depigmentation_pct)}`, "vasi-pct", defDepig, 100);
+                html += numInput(`Hand Units (1 Unit = 1% BSA)`, "vasi-hu", defHu, 100);
 
             } else if (dName.includes("melanoma") || dName.includes("nevus")) {
                 title = "ABCDE Risk Assessment";
-                html += rangeInput(`Asymmetry [AI Est: ${safeLabel(m.asymmetry)}]`, "abcde-a", m.asymmetry, 10);
-                html += rangeInput(`Border Irregularity [AI Est: ${safeLabel(m.border)}]`, "abcde-b", m.border, 10);
-                html += rangeInput(`Color Variance [AI Est: ${safeLabel(m.color)}]`, "abcde-c", m.color, 10);
-                html += rangeInput(`Diameter Score [AI Est: ${safeLabel(m.diameter)}]`, "abcde-d", m.diameter, 10);
+                html += rangeInput(`Asymmetry${safeLabel(m.asymmetry)}`, "(Mirror Mismatch)", "abcde-a", m.asymmetry, 2);
+                html += rangeInput(`Border Irregularity${safeLabel(m.border)}`, "(Compactness)", "abcde-b", m.border, 2);
+                html += rangeInput(`Color Variance${safeLabel(m.color)}`, "(Multiple Clusters)", "abcde-c", m.color, 2);
+                html += rangeInput(`Diameter Score${safeLabel(m.diameter)}`, "(>6mm)", "abcde-d", m.diameter, 1);
                 html += `
                 <div style="margin-bottom:15px;">
                     <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">Evolution (History of Change)</label>
                     <select id="abcde-e" onchange="calculateFinalScore()" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; color:#333; background:#fff;">
                         <option value="0">No Change</option>
-                        <option value="1">Changed</option>
+                        <option value="1">Unknown</option>
+                        <option value="3">Yes, has changed</option>
                     </select>
                 </div>`;
 
             } else if (dName.includes("alopecia")) {
                 title = "SALT Calculator (Alopecia)";
-                html += numInput(`Hair Loss % [AI Est: ${safeLabel(m.hair_loss_pct)}%]`, "salt-loss", m.hair_loss_pct);
-                html += `
-                <div style="margin-bottom:15px;">
-                    <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">Scalp Quadrant</label>
-                    <select id="salt-q" onchange="calculateFinalScore()" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; color:#333; background:#fff;">
-                        <option value="18">Left Side (18%)</option>
-                        <option value="18">Right Side (18%)</option>
-                        <option value="40">Top (40%)</option>
-                        <option value="24">Back (24%)</option>
-                    </select>
-                </div>`;
+                if (m.is_blurry) {
+                    html += `
+                    <div style="padding:10px; background:#fef2f2; color:#ef4444; border-radius:6px; margin-bottom:15px; font-size:0.85rem; border:1px solid #fecaca;">
+                        ⚠️ <b>Image out of focus.</b> SALT estimation may be inaccurate. Please retake photo. (Blur Variance: ${safeLabel(m.blur_variance)})
+                    </div>`;
+                }
+                const saltRegions = [
+                    { id: "top", label: "Top (40%)" },
+                    { id: "back", label: "Back (24%)" },
+                    { id: "left", label: "Left Side (18%)" },
+                    { id: "right", label: "Right Side (18%)" }
+                ];
+                let tabsHtml = `<div class="tabs">`;
+                let contentHtml = `<div class="tabs-container">`;
+                saltRegions.forEach((r, i) => {
+                    const active = i === 0 ? "active" : "";
+                    const mLoss = r.id === "top" ? m.hair_loss_pct : 0;
+                    tabsHtml += `<div class="tab ${active}" onclick="window.switchTab('salt', '${r.id}', this)">${r.label}</div>`;
+                    contentHtml += `<div id="salt-content-${r.id}" class="tab-content ${active}">
+                        ${numInput(`Hair Loss % [AI Est: ${safeLabel(m.hair_loss_pct)}%]`, `salt-loss-${r.id}`, mLoss, 100)}
+                    </div>`;
+                });
+                html += tabsHtml + `</div>` + contentHtml + `</div>`;
             } else {
                 title = "General Visual Severity";
-                html += rangeInput(`Visual Severity (0-10)`, "gen-sev", 5, 10);
+                html += rangeInput(`Visual Severity${safeLabel(m.visual)}`, "(0-10)", "gen-sev", 5, 10);
             }
 
             scoringContent.innerHTML = `
@@ -626,34 +901,47 @@
             let text = "";
 
             if (d.includes("psoriasis")) {
-                const e = parseInt(document.getElementById("pasi-e").value) || 0;
-                const i = parseInt(document.getElementById("pasi-i").value) || 0;
-                const des = parseInt(document.getElementById("pasi-d").value) || 0;
-                const a = parseFloat(document.getElementById("pasi-a").value) || 0;
-                score = (e + i + des) * a * 0.4;
-                text = `PASI Approximation: ${score.toFixed(1)}`;
+                const getReg = (rId) => {
+                    const e = parseInt(document.getElementById(`pasi-e-${rId}`).value) || 0;
+                    const i = parseInt(document.getElementById(`pasi-i-${rId}`).value) || 0;
+                    const des = parseInt(document.getElementById(`pasi-d-${rId}`).value) || 0;
+                    const a = parseFloat(document.getElementById(`pasi-a-${rId}`).value) || 0;
+                    return (e + i + des) * a;
+                };
+                score = (getReg("head") * 0.1) + (getReg("upper") * 0.2) + (getReg("trunk") * 0.3) + (getReg("lower") * 0.4);
+                text = `PASI Score: ${score.toFixed(1)}`;
 
             } else if (d.includes("acne")) {
-                const p = parseInt(document.getElementById("gags-p").value) || 0;
-                const n = parseInt(document.getElementById("gags-n").value) || 0;
-                const c = parseInt(document.getElementById("gags-c").value) || 0;
-                const loc = parseInt(document.getElementById("gags-loc").value);
-                score = loc * ((p * 2) + (n * 3) + c);
-                text = `GAGS Score: ${score}`;
+                let gagsScore = 0;
+                const regions = ["fh", "rc", "lc", "no", "ch", "cb"];
+                regions.forEach(r => {
+                    const select = document.getElementById(`gags-sev-${r}`);
+                    if (select) {
+                        const sev = parseInt(select.value) || 0;
+                        const factor = parseInt(select.getAttribute("data-factor")) || 0;
+                        gagsScore += sev * factor;
+                    }
+                });
+                score = gagsScore;
+                text = `GAGS Score: ${score} (Max 44)`;
 
             } else if (d.includes("dermatitis") || d.includes("eczema")) {
-                const e = parseInt(document.getElementById("easi-e").value) || 0;
-                const ed = parseInt(document.getElementById("easi-ed").value) || 0;
-                const ex = parseInt(document.getElementById("easi-ex").value) || 0;
-                const l = parseInt(document.getElementById("easi-l").value) || 0;
-                const a = parseFloat(document.getElementById("easi-a").value) || 0;
-                score = (e + ed + ex + l) * (a / 100) * 10;
+                const getReg = (rId) => {
+                    const e = parseInt(document.getElementById(`easi-e-${rId}`).value) || 0;
+                    const ed = parseInt(document.getElementById(`easi-ed-${rId}`).value) || 0;
+                    const ex = parseInt(document.getElementById(`easi-ex-${rId}`).value) || 0;
+                    const l = parseInt(document.getElementById(`easi-l-${rId}`).value) || 0;
+                    const a = parseFloat(document.getElementById(`easi-a-${rId}`).value) || 0;
+                    return (e + ed + ex + l) * a;
+                };
+                score = (getReg("head") * 0.1) + (getReg("upper") * 0.2) + (getReg("trunk") * 0.3) + (getReg("lower") * 0.4);
                 text = `EASI Score: ${score.toFixed(1)}`;
 
             } else if (d.includes("vitiligo")) {
                 const hu = parseFloat(document.getElementById("vasi-hu").value) || 0;
-                score = hu;
-                text = `VASI Score: ${score.toFixed(1)}`;
+                const depig = parseFloat(document.getElementById("vasi-pct").value) || 0;
+                score = hu * (depig / 100);
+                text = `VASI Score: ${score.toFixed(2)}`;
 
             } else if (d.includes("melanoma") || d.includes("nevus")) {
                 const a = parseInt(document.getElementById("abcde-a").value);
@@ -661,14 +949,13 @@
                 const c = parseInt(document.getElementById("abcde-c").value);
                 const diameter = parseInt(document.getElementById("abcde-d").value);
                 const e = parseInt(document.getElementById("abcde-e").value);
-                const total = a + b + c + diameter + (e * 5);
-                text = total > 15 ? "High Risk" : (total > 8 ? "Medium Risk" : "Low Risk");
-                text += ` (Score: ${total})`;
+                const total = a + b + c + diameter + e;
+                text = total >= 7 ? "High Suspicion" : (total >= 4 ? "Moderate Suspicion" : "Low Suspicion");
+                text += ` (Risk Score: ${total}/10)`;
 
             } else if (d.includes("alopecia")) {
-                const loss = parseFloat(document.getElementById("salt-loss").value) || 0;
-                const q = parseFloat(document.getElementById("salt-q").value) || 1;
-                score = loss * (q / 100);
+                const getReg = (rId) => parseFloat(document.getElementById(`salt-loss-${rId}`).value) || 0;
+                score = (getReg("top") * 0.40) + (getReg("back") * 0.24) + (getReg("left") * 0.18) + (getReg("right") * 0.18);
                 text = `SALT Score: ${score.toFixed(1)}`;
             } else {
                 const val = document.getElementById("gen-sev").value;
@@ -690,30 +977,45 @@
         }
 
         function renderEvidence(id, cases) {
-            const c = document.getElementById(id);
-            c.innerHTML = "";
+            const container = document.getElementById(id);
+            container.innerHTML = "";
+            let currentDisplayCount = 6;
 
-            cases.forEach(caseItem => {
+            const renderBatch = () => {
+                container.innerHTML = "";
+                const visibleCases = cases.slice(0, currentDisplayCount);
 
-                const img = caseItem.web_url;
+                visibleCases.forEach(caseItem => {
+                    const img = caseItem.web_url;
+                    const div = document.createElement("div");
+                    div.className = "evidence-item";
+                    div.innerHTML = `
+                        <img src="${img}" class="evidence-thumb">
+                        <div>
+                            <div style="font-weight:600; color:#1e293b; font-size:0.95rem;">${caseItem.disease}</div>
+                            <div style="color:#64748b; font-size:0.8rem; margin-top:2px;">
+                                Similarity: <strong style="color:#0ea5e9;">${(caseItem.similarity * 100).toFixed(1)}%</strong>
+                            </div>
+                        </div>
+                    `;
+                    div.onclick = () => openModal(img);
+                    container.appendChild(div);
+                });
 
-                const div = document.createElement("div");
-                div.className = "evidence-item";
+                if (currentDisplayCount < cases.length) {
+                    const loadMoreBtn = document.createElement("button");
+                    loadMoreBtn.className = "primary-btn";
+                    loadMoreBtn.style = "margin-top:15px; width:100%; background:#f8fafc; color:#475569; border:1px solid #cbd5e1; padding:8px; font-size:0.9rem;";
+                    loadMoreBtn.innerText = `Load More Cases (${cases.length - currentDisplayCount} remaining)`;
+                    loadMoreBtn.onclick = () => {
+                        currentDisplayCount += 6;
+                        renderBatch();
+                    };
+                    container.appendChild(loadMoreBtn);
+                }
+            };
 
-                div.innerHTML = `
-<img src="${img}" class="evidence-thumb">
-<div>
-<div>${caseItem.disease}</div>
-<div style="color:#64748b;font-size:.75rem;">
-Similarity ${(caseItem.similarity * 100).toFixed(1)}%
-</div>
-</div>
-`;
-
-                div.onclick = () => openModal(img);
-
-                c.appendChild(div);
-            });
+            renderBatch();
         }
 
         function renderResults(data) {

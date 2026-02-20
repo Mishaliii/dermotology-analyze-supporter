@@ -15,7 +15,6 @@ EMBEDDING_DIR = "embeddings"
 
 KNN_K = 15          # how many neighbors to retrieve for voting
 SEARCH_K = 50       # how many to retrieve for evidence context
-TOP_DISEASES = 2    # max diseases to report
 
 # =============================
 # LOAD MODEL
@@ -144,7 +143,24 @@ def cosine_centroid_search(query_embedding: np.ndarray):
         scores[disease] = float(sim)
         
     ranked_diseases = sorted(scores.items(), key=lambda x: -x[1])
-    return ranked_diseases[:TOP_DISEASES]
+    return ranked_diseases
+
+def get_dynamic_top_diseases(ranked_diseases, max_diseases=5, threshold_ratio=0.6):
+    """
+    Returns diseases that score within `threshold_ratio` of the top prediction.
+    Ensures we don't drop viable differential diagnoses, but filters out junk.
+    """
+    if not ranked_diseases:
+        return []
+    top_score = ranked_diseases[0][1]
+    # If the top score is very low (e.g. cosine distance), adjust logic if needed. 
+    # For KNN votes and pure cosine, simple ratio works.
+    threshold = top_score * threshold_ratio
+    result = []
+    for disease, score in ranked_diseases:
+        if score >= threshold and len(result) < max_diseases:
+            result.append((disease, score))
+    return result
 
 
 def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
@@ -160,12 +176,12 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     # Method 2: Mean + Cosine Similarity (Centroids)
     # ---------------------------------------------------------
     # 1. Predict Disease using Centroids
-    m2_ranks = cosine_centroid_search(mean_emb)
+    m2_ranks_full = cosine_centroid_search(mean_emb)
     
     # 2. Find Evidence (Similar Cases for the predicted disease)
     # We perform a search specifically for this method's evidence, 
     # filtering for the top predicted disease.
-    m2_top_disease = m2_ranks[0][0]
+    m2_top_disease = m2_ranks_full[0][0]
     
     # Normalized query for search
     q_mean = mean_emb.copy()
@@ -190,14 +206,19 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     # ---------------------------------------------------------
     m3_ranks, m3_cases = knn_vote(mean_emb, mean_index, knn_k=knn_k, search_k=search_k)
             
+    # --- DYNAMIC DISEASE SELECTION ---
+    dynamic_m1_ranks = get_dynamic_top_diseases(m1_ranks)
+    dynamic_m2_ranks = get_dynamic_top_diseases(m2_ranks_full)
+    dynamic_m3_ranks = get_dynamic_top_diseases(m3_ranks)
+
     # --- SEVERITY SCORING ---
-    # Calculate score for ALL top diseases from Method 1
+    # Calculate score for ALL dynamically retrieved top diseases from Method 1
     severity_assessments = []
     
     try:
         from scripts.scoring import get_visual_score
         
-        for disease, _ in m1_ranks[:TOP_DISEASES]:
+        for disease, _ in dynamic_m1_ranks:
             metrics = get_visual_score(image_path, disease)
             severity_assessments.append({
                 "disease": disease,
@@ -211,35 +232,16 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
 
     return {
         "cls_knn": {
-            "top_diseases": m1_ranks[:TOP_DISEASES],
-            "similar_cases": m1_cases[:5]
+            "top_diseases": dynamic_m1_ranks,
+            "similar_cases": m1_cases[:30] # Send 30 for UI "Load More" logic
         },
         "mean_cosine": {
-            "top_diseases": m2_ranks,
+            "top_diseases": dynamic_m2_ranks,
             "similar_cases": m2_cases
         },
         "mean_knn": {
-            "top_diseases": m3_ranks[:TOP_DISEASES],
-            "similar_cases": m3_cases[:5]
+            "top_diseases": dynamic_m3_ranks,
+            "similar_cases": m3_cases[:30]
         },
-        "severity_assessments": severity_assessments 
-    }
-
-    return {
-        "cls_knn": {
-            "top_diseases": m1_ranks[:TOP_DISEASES],
-            "similar_cases": m1_cases[:5]
-        },
-        "mean_cosine": {
-            "top_diseases": m2_ranks,
-            "similar_cases": m2_cases
-        },
-        "mean_knn": {
-            "top_diseases": m3_ranks[:TOP_DISEASES],
-            "similar_cases": m3_cases[:5]
-        },
-        "severity_assessment": {
-            "disease": primary_diagnosis,
-            "metrics": severity_data
-        }
+        "severity_assessments": severity_assessments
     }
