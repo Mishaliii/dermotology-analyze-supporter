@@ -207,6 +207,17 @@
             align-items: center;
             margin-bottom: 12px;
             cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background: transparent;
+        }
+
+        .evidence-item:hover {
+            transform: translateY(-3px);
+            background: #f8fafc;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.02);
         }
 
         .evidence-thumb {
@@ -238,22 +249,127 @@
             }
         }
 
-        /* IMAGE MODAL */
-
+        /* PREMIUM IMAGE LIGHTBOX */
         #image-modal {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, .9);
+            background: rgba(15, 23, 42, 0.85);
+            /* Dark slate background */
+            backdrop-filter: blur(8px);
+            /* Glassmorphism blur */
+            -webkit-backdrop-filter: blur(8px);
             justify-content: center;
             align-items: center;
-            z-index: 999;
+            flex-direction: column;
+            z-index: 1000;
         }
 
         #image-modal img {
-            max-width: 92%;
-            max-height: 92%;
+            max-width: 90vw;
+            max-height: 80vh;
             border-radius: 12px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-caption {
+            color: #ffffff;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .modal-disease-title {
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            font-size: 1.4rem;
+        }
+
+        .modal-similarity {
+            color: #38bdf8;
+            font-weight: 600;
+        }
+
+        #modal-close-btn {
+            position: absolute;
+            top: 25px;
+            right: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #modal-close-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.15) rotate(90deg);
+        }
+
+        /* ANIMATIONS */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* EXPORT REPORT (PRINT FORMAT) */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+
+            .hero,
+            .upload-box,
+            .config-panel,
+            .floating-action-btn,
+            #scoring-btn-container,
+            button[class*="btn"],
+            .tabs {
+                display: none !important;
+            }
+
+            .container {
+                margin: 0;
+                padding: 0;
+                max-width: 100%;
+            }
+
+            .results-grid {
+                display: block;
+            }
+
+            .method-card {
+                break-inside: avoid;
+                border: 1px solid #ccc;
+                box-shadow: none;
+                margin-bottom: 30px;
+            }
+
+            .evidence-thumb {
+                border: 1px solid #ddd;
+            }
+
+            #image-modal,
+            #scoring-modal {
+                display: none !important;
+            }
         }
 
         /* NEW: Professional Floating Button */
@@ -516,7 +632,12 @@
     </div>
 
     <div id="image-modal">
+        <button id="modal-close-btn" onclick="closeModal()">&times;</button>
         <img id="modal-img">
+        <div class="modal-caption" id="modal-caption" style="display:none;">
+            <div class="modal-disease-title" id="modal-disease-name"></div>
+            <div>Similarity Score: <span class="modal-similarity" id="modal-similarity-score"></span></div>
+        </div>
     </div>
 
     <script>
@@ -606,50 +727,45 @@
 
             window.lastAssessmentsList = assessmentsList || [];
 
-            // Create a wrapper for multiple buttons if needed
+            // Create a wrapper for the single button
             const wrapper = document.createElement("div");
             wrapper.style.display = "flex";
             wrapper.style.gap = "15px";
             wrapper.style.justifyContent = "center";
             wrapper.style.flexWrap = "wrap";
+            wrapper.style.marginTop = "10px";
 
-            if (window.lastAssessmentsList.length > 0) {
-                window.lastAssessmentsList.forEach(data => {
-                    const btn = document.createElement("button");
-                    btn.className = "floating-action-btn";
-                    // Slightly smaller padding if multiple buttons
-                    if (window.lastAssessmentsList.length > 1) {
-                        btn.style.padding = "12px 24px";
-                        btn.style.fontSize = "0.95rem";
-                    }
-
-                    // Professional Content with Badge
-                    btn.innerHTML = `
-                        <span>${data.disease} Calc</span>
-                        <span style="background:rgba(255,255,255,0.25); padding:2px 8px; border-radius:10px; font-size:0.7rem;">AI</span>
-                    `;
-
-                    // Pass specific data
-                    btn.onclick = () => openScoringModal(data);
-
-                    wrapper.appendChild(btn);
-                });
-            }
-
-            // NEW: Add a manual calculator menu button for edge cases
+            // Add a single, clean manual calculator menu button
             const manualBtn = document.createElement("button");
             manualBtn.className = "floating-action-btn";
-            manualBtn.style.background = "linear-gradient(135deg, #475569, #1e293b)"; // dark theme
-            if (window.lastAssessmentsList.length > 1) {
-                manualBtn.style.padding = "12px 24px";
-                manualBtn.style.fontSize = "0.95rem";
-            }
+            manualBtn.style.background = "linear-gradient(135deg, #0ea5e9, #3b82f6)"; // Sleek blue gradient
+            manualBtn.style.boxShadow = "0 8px 25px rgba(14, 165, 233, 0.4)";
+            manualBtn.style.padding = "14px 32px";
+            manualBtn.style.fontSize = "1.05rem";
+            manualBtn.style.fontWeight = "600";
             manualBtn.innerHTML = `
-                <span>All Calculators</span>
-                <span style="background:rgba(255,255,255,0.25); padding:2px 8px; border-radius:10px; font-size:0.7rem;">Manual</span>
+                <span style="margin-right:8px;"><svg style="width:18px; height:18px; vertical-align:middle; margin-top:-3px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg></span>
+                <span>Clinical Calculators</span>
             `;
             manualBtn.onclick = () => openManualMenu();
             wrapper.appendChild(manualBtn);
+
+            // NEW: Add Export Report Button
+            const exportBtn = document.createElement("button");
+            exportBtn.className = "floating-action-btn";
+            exportBtn.style.background = "white";
+            exportBtn.style.color = "#0f172a";
+            exportBtn.style.border = "2px solid #e2e8f0";
+            exportBtn.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.05)";
+            exportBtn.style.padding = "12px 28px";
+            exportBtn.style.fontSize = "1.05rem";
+            exportBtn.style.fontWeight = "600";
+            exportBtn.innerHTML = `
+                <span style="margin-right:8px; color:#475569;"><svg style="width:18px; height:18px; vertical-align:middle; margin-top:-3px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg></span>
+                <span>Export Report</span>
+            `;
+            exportBtn.onclick = () => window.print();
+            wrapper.appendChild(exportBtn);
 
             btnContainer.appendChild(wrapper);
         }
@@ -985,10 +1101,15 @@
                 container.innerHTML = "";
                 const visibleCases = cases.slice(0, currentDisplayCount);
 
-                visibleCases.forEach(caseItem => {
+                visibleCases.forEach((caseItem, index) => {
                     const img = caseItem.web_url;
                     const div = document.createElement("div");
                     div.className = "evidence-item";
+                    // Add Staggered Fade-In Animation
+                    div.style.animation = "fadeInUp 0.4s ease forwards";
+                    div.style.animationDelay = (index * 0.08) + "s";
+                    div.style.opacity = "0";
+
                     div.innerHTML = `
                         <img src="${img}" class="evidence-thumb">
                         <div>
@@ -998,7 +1119,7 @@
                             </div>
                         </div>
                     `;
-                    div.onclick = () => openModal(img);
+                    div.onclick = () => openModal(img, caseItem.disease, caseItem.similarity);
                     container.appendChild(div);
                 });
 
@@ -1006,7 +1127,7 @@
                     const loadMoreBtn = document.createElement("button");
                     loadMoreBtn.className = "primary-btn";
                     loadMoreBtn.style = "margin-top:15px; width:100%; background:#f8fafc; color:#475569; border:1px solid #cbd5e1; padding:8px; font-size:0.9rem;";
-                    loadMoreBtn.innerText = `Load More Cases (${cases.length - currentDisplayCount} remaining)`;
+                    loadMoreBtn.innerText = "Load More Cases (" + (cases.length - currentDisplayCount) + " remaining)";
                     loadMoreBtn.onclick = () => {
                         currentDisplayCount += 6;
                         renderBatch();
@@ -1031,13 +1152,34 @@
 
         }
 
-        function openModal(src) {
+        function openModal(src, diseaseName = "", similarity = -1) {
             document.getElementById("modal-img").src = src;
+
+            // Populate Caption if data exists
+            if (diseaseName) {
+                document.getElementById("modal-caption").style.display = "block";
+                document.getElementById("modal-disease-name").innerText = diseaseName;
+                document.getElementById("modal-similarity-score").innerText = (similarity * 100).toFixed(1) + "%";
+            } else {
+                document.getElementById("modal-caption").style.display = "none";
+            }
+
             document.getElementById("image-modal").style.display = "flex";
+
+            // Subtle pop-in animation for modal
+            document.getElementById("image-modal").style.animation = "fadeInUp 0.3s ease";
         }
 
-        document.getElementById("image-modal").onclick =
-            () => document.getElementById("image-modal").style.display = "none";
+        function closeModal() {
+            document.getElementById("image-modal").style.display = "none";
+        }
+
+        // Close when clicking outside image
+        document.getElementById("image-modal").onclick = function (e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        };
 
     </script>
 

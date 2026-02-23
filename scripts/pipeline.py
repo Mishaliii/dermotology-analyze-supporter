@@ -97,6 +97,7 @@ def knn_vote(query_embedding: np.ndarray, index, knn_k=KNN_K, search_k=SEARCH_K)
 
     disease_votes = defaultdict(float)
     similar_cases = []
+    champion_bonus = 0.0
 
     for i, (sim, idx) in enumerate(zip(scores[0], indices[0])):
         disease = image_labels[idx]
@@ -115,8 +116,10 @@ def knn_vote(query_embedding: np.ndarray, index, knn_k=KNN_K, search_k=SEARCH_K)
             if i == 0:
                 if score > 0.90:
                     score += 10.0  # Massive bonus: 1-NN override
+                    champion_bonus = 10.0
                 else:
                     score += 2.0   # Moderate bonus: priority
+                    champion_bonus = 2.0
                 
             disease_votes[disease] += score
 
@@ -126,7 +129,7 @@ def knn_vote(query_embedding: np.ndarray, index, knn_k=KNN_K, search_k=SEARCH_K)
         key=lambda x: -x[1]
     )
 
-    return ranked_diseases, similar_cases
+    return ranked_diseases, similar_cases, champion_bonus
 
 
 def cosine_centroid_search(query_embedding: np.ndarray):
@@ -145,21 +148,31 @@ def cosine_centroid_search(query_embedding: np.ndarray):
     ranked_diseases = sorted(scores.items(), key=lambda x: -x[1])
     return ranked_diseases
 
-def get_dynamic_top_diseases(ranked_diseases, max_diseases=5, threshold_ratio=0.6):
+def get_dynamic_top_diseases(ranked_diseases, max_diseases=5, threshold_ratio=0.4, min_diseases=2, champion_bonus=0.0):
     """
-    Returns diseases that score within `threshold_ratio` of the top prediction.
+    Returns diseases that score within `threshold_ratio` of the top prediction,
+    while guaranteeing at least `min_diseases` are returned if available.
     Ensures we don't drop viable differential diagnoses, but filters out junk.
     """
     if not ranked_diseases:
         return []
-    top_score = ranked_diseases[0][1]
-    # If the top score is very low (e.g. cosine distance), adjust logic if needed. 
-    # For KNN votes and pure cosine, simple ratio works.
-    threshold = top_score * threshold_ratio
+        
     result = []
-    for disease, score in ranked_diseases:
-        if score >= threshold and len(result) < max_diseases:
+    top_score = ranked_diseases[0][1]
+    
+    # Strip the artificial Champion Bonus from the top score just for this threshold check
+    # to prevent perfectly valid 2nd/3rd place diseases from getting wiped out by a massive +10 vote
+    pure_top_score = max(0.01, top_score - champion_bonus)
+    threshold = pure_top_score * threshold_ratio
+    
+    for i, (disease, score) in enumerate(ranked_diseases):
+        # Always include the minimum guaranteed number of diseases
+        if i < min_diseases:
             result.append((disease, score))
+        # For remaining diseases, check if they meet the threshold
+        elif score >= threshold and len(result) < max_diseases:
+            result.append((disease, score))
+            
     return result
 
 
@@ -170,7 +183,7 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     # ---------------------------------------------------------
     # Method 1: CLS + Rank-Weighted kNN
     # ---------------------------------------------------------
-    m1_ranks, m1_cases = knn_vote(cls_emb, cls_index, knn_k=knn_k, search_k=search_k)
+    m1_ranks, m1_cases, m1_bonus = knn_vote(cls_emb, cls_index, knn_k=knn_k, search_k=search_k)
     
     # ---------------------------------------------------------
     # Method 2: Mean + Cosine Similarity (Centroids)
@@ -186,7 +199,11 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     # Normalized query for search
     q_mean = mean_emb.copy()
     faiss.normalize_L2(q_mean)
-    D, I = mean_index.search(q_mean, search_k)
+    
+    # DEEP SWEEP: Centroids are abstract, so we need to search deep to guarantee
+    # finding actual dataset cases that match the centroid prediction. (search_k=1000)
+    deep_k = min(1000, mean_index.ntotal) if hasattr(mean_index, 'ntotal') else 1000
+    D, I = mean_index.search(q_mean, deep_k)
     
     m2_cases = []
     # Look through the search results to find instances of the top predicted disease
@@ -198,18 +215,18 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
                 "disease": disease,
                 "similarity": float(dist)
             })
-            if len(m2_cases) >= 5: # Limit to top 5 evidence
+            if len(m2_cases) >= 30: # Limit to top 30 evidence for UI Load More
                 break
 
     # ---------------------------------------------------------
     # Method 3: Mean + Rank-Weighted kNN (Texture)
     # ---------------------------------------------------------
-    m3_ranks, m3_cases = knn_vote(mean_emb, mean_index, knn_k=knn_k, search_k=search_k)
+    m3_ranks, m3_cases, m3_bonus = knn_vote(mean_emb, mean_index, knn_k=knn_k, search_k=search_k)
             
     # --- DYNAMIC DISEASE SELECTION ---
-    dynamic_m1_ranks = get_dynamic_top_diseases(m1_ranks)
-    dynamic_m2_ranks = get_dynamic_top_diseases(m2_ranks_full)
-    dynamic_m3_ranks = get_dynamic_top_diseases(m3_ranks)
+    dynamic_m1_ranks = get_dynamic_top_diseases(m1_ranks, champion_bonus=m1_bonus)
+    dynamic_m2_ranks = get_dynamic_top_diseases(m2_ranks_full) # No bonus for simple cosine
+    dynamic_m3_ranks = get_dynamic_top_diseases(m3_ranks, champion_bonus=m3_bonus)
 
     # --- SEVERITY SCORING ---
     # Calculate score for ALL dynamically retrieved top diseases from Method 1
