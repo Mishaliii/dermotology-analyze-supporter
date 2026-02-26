@@ -1,0 +1,441 @@
+{
+  "cls_knn": {
+    "top_diseases": [
+      [
+        "Acne_Vulgaris",
+        12.831634402275085
+      ],
+      [
+        "Pityrosporum_Folliculitis",
+        0.9170756936073303
+      ]
+    ],
+    "similar_cases": [
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\046542VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.9938934445381165,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/046542VB.jpg",
+        "filename": "046542VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\034925VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.921704113483429,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/034925VB.jpg",
+        "filename": "034925VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Pityrosporum_Folliculitis\\045514VB.jpg",
+        "disease": "Pityrosporum_Folliculitis",
+        "similarity": 0.9170756936073303,
+        "web_url": "/data/ISD-198/Train/Pityrosporum_Folliculitis/045514VB.jpg",
+        "filename": "045514VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\035095VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.91603684425354,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/035095VB.jpg",
+        "filename": "035095VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Steroid_Use_abusemisuse_Dermatitis\\008604VB.jpg",
+        "disease": "Steroid_Use_abusemisuse_Dermatitis",
+        "similarity": 0.8937254548072815,
+        "web_url": "/data/ISD-198/Train/Steroid_Use_abusemisuse_Dermatitis/008604VB.jpg",
+        "filename": "008604VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Rosacea\\006761VB.jpg",
+        "disease": "Rosacea",
+        "similarity": 0.8902816772460938,
+        "web_url": "/data/ISD-198/Train/Rosacea/006761VB.jpg",
+        "filename": "006761VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033320VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8876712322235107,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033320VB.jpg",
+        "filename": "033320VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Pityrosporum_Folliculitis\\039795VB.jpg",
+        "disease": "Pityrosporum_Folliculitis",
+        "similarity": 0.8801865577697754,
+        "web_url": "/data/ISD-198/Train/Pityrosporum_Folliculitis/039795VB.jpg",
+        "filename": "039795VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Rosacea\\006773HB.jpg",
+        "disease": "Rosacea",
+        "similarity": 0.8773900270462036,
+        "web_url": "/data/ISD-198/Train/Rosacea/006773HB.jpg",
+        "filename": "006773HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\034238HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8766326308250427,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/034238HB.jpg",
+        "filename": "034238HB.jpg"
+      }
+    ]
+  },
+  "mean_cosine": {
+    "top_diseases": [
+      [
+        "Acne_Vulgaris",
+        0.9163374900817871
+      ],
+      [
+        "Tinea_Faciale",
+        0.8965627551078796
+      ],
+      [
+        "Lymphocytic_Infiltrate_of_Jessner",
+        0.8882840871810913
+      ],
+      [
+        "Dermatosis_Papulosa_Nigra",
+        0.8620973825454712
+      ],
+      [
+        "Steroid_Use_abusemisuse_Dermatitis",
+        0.8616118431091309
+      ]
+    ],
+    "similar_cases": [
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\046542VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.9932236671447754,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/046542VB.jpg",
+        "filename": "046542VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\034925VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.9358260631561279,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/034925VB.jpg",
+        "filename": "034925VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\035095VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.9077810049057007,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/035095VB.jpg",
+        "filename": "035095VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033608HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.903273344039917,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033608HB.jpg",
+        "filename": "033608HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033320VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8933941125869751,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033320VB.jpg",
+        "filename": "033320VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033773HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8885537981987,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033773HB.jpg",
+        "filename": "033773HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033524VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8782022595405579,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033524VB.jpg",
+        "filename": "033524VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\032897HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.870088517665863,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/032897HB.jpg",
+        "filename": "032897HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\034238HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8608925342559814,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/034238HB.jpg",
+        "filename": "034238HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033368VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.842411994934082,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033368VB.jpg",
+        "filename": "033368VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033007HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8380172848701477,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033007HB.jpg",
+        "filename": "033007HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033598HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8372436761856079,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033598HB.jpg",
+        "filename": "033598HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\034718HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8352903127670288,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/034718HB.jpg",
+        "filename": "034718HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033367VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.833460807800293,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033367VB.jpg",
+        "filename": "033367VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033963HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8286492824554443,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033963HB.jpg",
+        "filename": "033963HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033131HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8257427215576172,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033131HB.jpg",
+        "filename": "033131HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033262VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.822510302066803,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033262VB.jpg",
+        "filename": "033262VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\035216VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8204886317253113,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/035216VB.jpg",
+        "filename": "035216VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033066HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8158832788467407,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033066HB.jpg",
+        "filename": "033066HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033067HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8108769655227661,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033067HB.jpg",
+        "filename": "033067HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033413VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8072577714920044,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033413VB.jpg",
+        "filename": "033413VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\034369HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8058233261108398,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/034369HB.jpg",
+        "filename": "034369HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033787HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.8038151860237122,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033787HB.jpg",
+        "filename": "033787HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033325HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.7812815308570862,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033325HB.jpg",
+        "filename": "033325HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033143HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.7797889709472656,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033143HB.jpg",
+        "filename": "033143HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033568HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.7729488611221313,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033568HB.jpg",
+        "filename": "033568HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033375VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.7672927975654602,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033375VB.jpg",
+        "filename": "033375VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033456VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.7632246613502502,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033456VB.jpg",
+        "filename": "033456VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033326HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.7596420645713806,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033326HB.jpg",
+        "filename": "033326HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033073HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.7437290549278259,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033073HB.jpg",
+        "filename": "033073HB.jpg"
+      }
+    ]
+  },
+  "mean_knn": {
+    "top_diseases": [
+      [
+        "Acne_Vulgaris",
+        11.929049730300903
+      ],
+      [
+        "Pityrosporum_Folliculitis",
+        1.862824261188507
+      ],
+      [
+        "Rosacea",
+        0.9224779009819031
+      ]
+    ],
+    "similar_cases": [
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\046542VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.9932236671447754,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/046542VB.jpg",
+        "filename": "046542VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Pityrosporum_Folliculitis\\045514VB.jpg",
+        "disease": "Pityrosporum_Folliculitis",
+        "similarity": 0.9453685283660889,
+        "web_url": "/data/ISD-198/Train/Pityrosporum_Folliculitis/045514VB.jpg",
+        "filename": "045514VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\034925VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.9358260631561279,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/034925VB.jpg",
+        "filename": "034925VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Rosacea\\006761VB.jpg",
+        "disease": "Rosacea",
+        "similarity": 0.9224779009819031,
+        "web_url": "/data/ISD-198/Train/Rosacea/006761VB.jpg",
+        "filename": "006761VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Pityrosporum_Folliculitis\\039795VB.jpg",
+        "disease": "Pityrosporum_Folliculitis",
+        "similarity": 0.9174557328224182,
+        "web_url": "/data/ISD-198/Train/Pityrosporum_Folliculitis/039795VB.jpg",
+        "filename": "039795VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\035095VB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.9077810049057007,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/035095VB.jpg",
+        "filename": "035095VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Tinea_Faciale\\038542VB.jpg",
+        "disease": "Tinea_Faciale",
+        "similarity": 0.9044333100318909,
+        "web_url": "/data/ISD-198/Train/Tinea_Faciale/038542VB.jpg",
+        "filename": "038542VB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Acne_Vulgaris\\033608HB.jpg",
+        "disease": "Acne_Vulgaris",
+        "similarity": 0.903273344039917,
+        "web_url": "/data/ISD-198/Train/Acne_Vulgaris/033608HB.jpg",
+        "filename": "033608HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Pityrosporum_Folliculitis\\039881HB.jpg",
+        "disease": "Pityrosporum_Folliculitis",
+        "similarity": 0.9017274379730225,
+        "web_url": "/data/ISD-198/Train/Pityrosporum_Folliculitis/039881HB.jpg",
+        "filename": "039881HB.jpg"
+      },
+      {
+        "image_path": "data/ISD-198/Train\\Steroid_Use_abusemisuse_Dermatitis\\008758VB.jpg",
+        "disease": "Steroid_Use_abusemisuse_Dermatitis",
+        "similarity": 0.8971701860427856,
+        "web_url": "/data/ISD-198/Train/Steroid_Use_abusemisuse_Dermatitis/008758VB.jpg",
+        "filename": "008758VB.jpg"
+      }
+    ]
+  },
+  "severity_assessments": [
+    {
+      "disease": "Dermatosis_Papulosa_Nigra",
+      "metrics": {}
+    },
+    {
+      "disease": "Acne_Vulgaris",
+      "metrics": {}
+    },
+    {
+      "disease": "Rosacea",
+      "metrics": {}
+    },
+    {
+      "disease": "Tinea_Faciale",
+      "metrics": {}
+    },
+    {
+      "disease": "Steroid_Use_abusemisuse_Dermatitis",
+      "metrics": {}
+    },
+    {
+      "disease": "Pityrosporum_Folliculitis",
+      "metrics": {}
+    },
+    {
+      "disease": "Lymphocytic_Infiltrate_of_Jessner",
+      "metrics": {}
+    }
+  ],
+  "uploaded_image": "/temp/86c82723bf0c4c3aa3761115b186d28f_046542VB.jpg"
+}

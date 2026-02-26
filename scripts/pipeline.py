@@ -17,32 +17,43 @@ KNN_K = 15          # how many neighbors to retrieve for voting
 SEARCH_K = 50       # how many to retrieve for evidence context
 
 # =============================
-# LOAD MODEL
+# LOAD MODEL & DATA (LAZY)
 # =============================
-processor = AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=False)
-model = AutoModel.from_pretrained(MODEL_NAME)
-model.eval().to(DEVICE)
-torch.set_grad_enabled(False)
+processor = None
+model = None
+image_labels = None
+image_paths = None
+cls_index = None
+mean_index = None
+disease_centroids = None
 
-# =============================
-# LOAD DATA
-# =============================
-image_labels = np.load(
-    os.path.join(EMBEDDING_DIR, "image_labels.npy"),
-    allow_pickle=True
-)
-image_paths = np.load(
-    os.path.join(EMBEDDING_DIR, "image_paths.npy"),
-    allow_pickle=True
-)
-
-cls_index = faiss.read_index(os.path.join(EMBEDDING_DIR, "cls_index.faiss"))
-mean_index = faiss.read_index(os.path.join(EMBEDDING_DIR, "mean_index.faiss"))
-
-disease_centroids = np.load(
-    os.path.join(EMBEDDING_DIR, "disease_mean_vectors.npy"),
-    allow_pickle=True
-).item()
+def _init_models_and_data():
+    global processor, model, image_labels, image_paths, cls_index, mean_index, disease_centroids
+    if model is not None: return
+    
+    print("[INFO] Loading DINOv2 Model and FAISS indices...")
+    processor = AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=False)
+    model = AutoModel.from_pretrained(MODEL_NAME)
+    model.eval().to(DEVICE)
+    torch.set_grad_enabled(False)
+    
+    image_labels = np.load(
+        os.path.join(EMBEDDING_DIR, "image_labels.npy"),
+        allow_pickle=True
+    )
+    image_paths = np.load(
+        os.path.join(EMBEDDING_DIR, "image_paths.npy"),
+        allow_pickle=True
+    )
+    
+    cls_index = faiss.read_index(os.path.join(EMBEDDING_DIR, "cls_index.faiss"))
+    mean_index = faiss.read_index(os.path.join(EMBEDDING_DIR, "mean_index.faiss"))
+    
+    disease_centroids = np.load(
+        os.path.join(EMBEDDING_DIR, "disease_mean_vectors.npy"),
+        allow_pickle=True
+    ).item()
+    print("[INFO] Model and Data loaded successfully.")
 
 # =============================
 # CORE FUNCTIONS
@@ -64,6 +75,7 @@ def embed_image(image: Image.Image):
     img_zoom = img_base.crop((22, 22, 202, 202)).resize((224, 224))
     
     # Process batch of 3
+    _init_models_and_data()
     inputs = processor(images=[img_base, img_flip, img_zoom], return_tensors="pt", do_resize=False, do_center_crop=False)
     inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
     
@@ -177,6 +189,7 @@ def get_dynamic_top_diseases(ranked_diseases, max_diseases=5, threshold_ratio=0.
 
 
 def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
+    _init_models_and_data()
     image = Image.open(image_path).convert("RGB")
     cls_emb, mean_emb = embed_image(image)
 
@@ -229,13 +242,19 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     dynamic_m3_ranks = get_dynamic_top_diseases(m3_ranks, champion_bonus=m3_bonus)
 
     # --- SEVERITY SCORING ---
-    # Calculate score for ALL dynamically retrieved top diseases from Method 1
+    # Calculate score for ALL dynamically retrieved top diseases across all methods
+    # This ensures if the user clicks ANY disease chip, the calculator won't load empty metrics
     severity_assessments = []
     
     try:
         from scripts.scoring import get_visual_score
         
-        for disease, _ in dynamic_m1_ranks:
+        # Gather all unique diseases
+        unique_diseases = set([d[0] for d in dynamic_m1_ranks] + 
+                              [d[0] for d in dynamic_m2_ranks] + 
+                              [d[0] for d in dynamic_m3_ranks])
+        
+        for disease in unique_diseases:
             metrics = get_visual_score(image_path, disease)
             severity_assessments.append({
                 "disease": disease,

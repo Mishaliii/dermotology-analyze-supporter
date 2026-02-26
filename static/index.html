@@ -184,13 +184,32 @@
 
         .disease-chip {
             display: inline-block;
-            background: #e0f2fe;
-            color: #0c4a6e;
-            padding: 6px 12px;
+            background: #f1f5f9;
+            color: #475569;
+            padding: 8px 16px;
             border-radius: 20px;
-            font-weight: 600;
-            font-size: .85rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border: 1px solid #e2e8f0;
             margin: 5px 5px 0 0;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            user-select: none;
+        }
+
+        .disease-chip:hover {
+            background: #e2e8f0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .disease-chip.selected {
+            background: #0ea5e9;
+            color: white;
+            border-color: #0284c7;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
+            transform: scale(1.05);
+            font-weight: 600;
         }
 
         /* Evidence */
@@ -571,7 +590,18 @@
 
         <div class="preview-wrapper" id="preview-wrapper">
             <h4>Uploaded Case Preview</h4>
-            <img id="preview-img">
+            <div style="position: relative; display: inline-block;">
+                <img id="preview-img">
+                <svg id="sam-overlay" viewBox="0 0 512 512" preserveAspectRatio="none"
+                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;">
+                </svg>
+            </div>
+
+            <div id="sam-legend" style="display:none; margin-top:10px; font-size:12px; color:#10b981;">
+                <span
+                    style="display:inline-block; width:12px; height:12px; background:rgba(16, 185, 129, 0.3); border:2px solid #10b981; border-radius:3px; vertical-align:middle; margin-right:5px;"></span>
+                AI Segmented Lesion Area (SAM)
+            </div>
         </div>
 
     </div>
@@ -579,11 +609,7 @@
     <!-- ================= RESULTS ================= -->
 
     <div class="container">
-
         <div class="loader" id="loader"></div>
-
-        <!-- MOVED: Scoring Button Container (Upper Center) -->
-        <div id="scoring-btn-container" style="text-align:center; margin-bottom: 30px;"></div>
 
         <div class="results-grid" id="results-container" style="display:none;">
 
@@ -655,6 +681,7 @@
         const scoringModal = document.getElementById("scoring-modal");
         const scoringContent = document.getElementById("scoring-content");
         let currentScoringData = null;
+        let selectedDisease = null; // NEW: Track which disease the doctor clicked
 
         dropZone.onclick = () => fileInput.click();
 
@@ -667,14 +694,17 @@
             previewImg.src = URL.createObjectURL(file);
             previewWrapper.style.display = "block";
 
+            // CLEAR PREVIOUS SAM OVERLAYS
+            const overlay = document.getElementById("sam-overlay");
+            if (overlay) overlay.innerHTML = "";
+            const samLegend = document.getElementById("sam-legend");
+            if (samLegend) samLegend.style.display = "none";
+
             loader.style.display = "block";
             results.style.display = "none";
 
-            // Clear previous scoring buttons via the container
-            const btnContainer = document.getElementById("scoring-btn-container");
-            if (btnContainer) btnContainer.innerHTML = "";
-
             currentScoringData = null;
+            selectedDisease = null; // Reset selection on new upload
 
             const formData = new FormData();
             formData.append("file", file);
@@ -694,15 +724,13 @@
 
                     renderResults(data);
 
-                    // Setup Scoring (Now supports multiple options)
+                    // Track AI assessments so calculators can auto-fill values
                     if (data.severity_assessments && data.severity_assessments.length > 0) {
-                        setupScoringRef(data.severity_assessments);
+                        window.lastAssessmentsList = data.severity_assessments;
                     } else if (data.severity_assessment && data.severity_assessment.metrics) {
-                        // Fallback for old API if needed
-                        setupScoringRef([data.severity_assessment]);
+                        window.lastAssessmentsList = [data.severity_assessment];
                     } else {
-                        // NEW: Always show manual button if no assessments
-                        setupScoringRef([]);
+                        window.lastAssessmentsList = [];
                     }
 
                     results.style.display = "grid";
@@ -717,96 +745,19 @@
                 .finally(() => loader.style.display = "none");
         }
 
-        // NEW: Scoring Logic (Supports Multiple)
-        function setupScoringRef(assessmentsList) {
-            const btnContainer = document.getElementById("scoring-btn-container");
-            if (!btnContainer) return;
-
-            // Clear any existing buttons
-            btnContainer.innerHTML = "";
-
-            window.lastAssessmentsList = assessmentsList || [];
-
-            // Create a wrapper for the single button
-            const wrapper = document.createElement("div");
-            wrapper.style.display = "flex";
-            wrapper.style.gap = "15px";
-            wrapper.style.justifyContent = "center";
-            wrapper.style.flexWrap = "wrap";
-            wrapper.style.marginTop = "10px";
-
-            // Add a single, clean manual calculator menu button
-            const manualBtn = document.createElement("button");
-            manualBtn.className = "floating-action-btn";
-            manualBtn.style.background = "linear-gradient(135deg, #0ea5e9, #3b82f6)"; // Sleek blue gradient
-            manualBtn.style.boxShadow = "0 8px 25px rgba(14, 165, 233, 0.4)";
-            manualBtn.style.padding = "14px 32px";
-            manualBtn.style.fontSize = "1.05rem";
-            manualBtn.style.fontWeight = "600";
-            manualBtn.innerHTML = `
-                <span style="margin-right:8px;"><svg style="width:18px; height:18px; vertical-align:middle; margin-top:-3px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg></span>
-                <span>Clinical Calculators</span>
-            `;
-            manualBtn.onclick = () => openManualMenu();
-            wrapper.appendChild(manualBtn);
-
-            // NEW: Add Export Report Button
-            const exportBtn = document.createElement("button");
-            exportBtn.className = "floating-action-btn";
-            exportBtn.style.background = "white";
-            exportBtn.style.color = "#0f172a";
-            exportBtn.style.border = "2px solid #e2e8f0";
-            exportBtn.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.05)";
-            exportBtn.style.padding = "12px 28px";
-            exportBtn.style.fontSize = "1.05rem";
-            exportBtn.style.fontWeight = "600";
-            exportBtn.innerHTML = `
-                <span style="margin-right:8px; color:#475569;"><svg style="width:18px; height:18px; vertical-align:middle; margin-top:-3px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg></span>
-                <span>Export Report</span>
-            `;
-            exportBtn.onclick = () => window.print();
-            wrapper.appendChild(exportBtn);
-
-            btnContainer.appendChild(wrapper);
+        // Helper to map a raw disease name to our internal calculator keys
+        function getCalculatorKeyForDisease(disease) {
+            const dStr = disease.toLowerCase();
+            if (dStr.includes("psoriasis")) return "Psoriasis";
+            if (dStr.includes("acne")) return "Acne";
+            if (dStr.includes("dermatitis") || dStr.includes("eczema")) return "Eczema";
+            if (dStr.includes("vitiligo")) return "Vitiligo";
+            if (dStr.includes("melanoma") || dStr.includes("nevus") || dStr.includes("mole")) return "Melanoma";
+            if (dStr.includes("alopecia")) return "Alopecia";
+            return null; // No specific calculator available
         }
 
-        function openManualMenu() {
-            const menuHtml = `
-                <div style="text-align:center; padding-bottom: 20px; border-bottom: 2px solid #f1f5f9; margin-bottom: 25px;">
-                    <h3 style="margin:0; color:#0f172a; font-size:1.6rem; font-weight:800; letter-spacing:-0.5px;">Clinical Calculators</h3>
-                    <p style="margin:8px 0 0 0; color:#64748b; font-size:0.95rem;">Select an assessment to manually grade this case.</p>
-                </div>
-                <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
-                    <button class="manual-calc-card" onclick="openManualCalc('Psoriasis')">
-                        <div class="calc-name">PASI</div>
-                        <div class="calc-desc">Psoriasis Area & Severity</div>
-                    </button>
-                    <button class="manual-calc-card" onclick="openManualCalc('Acne')">
-                        <div class="calc-name">GAGS</div>
-                        <div class="calc-desc">Acne Grading System</div>
-                    </button>
-                    <button class="manual-calc-card" onclick="openManualCalc('Eczema')">
-                        <div class="calc-name">EASI</div>
-                        <div class="calc-desc">Atopic Dermatitis Extent</div>
-                    </button>
-                    <button class="manual-calc-card" onclick="openManualCalc('Vitiligo')">
-                        <div class="calc-name">VASI</div>
-                        <div class="calc-desc">Vitiligo Area Scoring</div>
-                    </button>
-                    <button class="manual-calc-card" onclick="openManualCalc('Melanoma')">
-                        <div class="calc-name">ABCDE</div>
-                        <div class="calc-desc">Melanoma Risk Checklist</div>
-                    </button>
-                    <button class="manual-calc-card" onclick="openManualCalc('Alopecia')">
-                        <div class="calc-name">SALT</div>
-                        <div class="calc-desc">Severity of Alopecia</div>
-                    </button>
-                </div>
-            `;
-            scoringContent.innerHTML = menuHtml;
-            document.getElementById("final-score-display").innerText = "";
-            scoringModal.style.display = "flex";
-        }
+        // Manual Menu removed as we are driving entirely from disease chips
 
         function openManualCalc(diseaseName) {
             let existingData = null;
@@ -825,6 +776,26 @@
             let html = "";
             let title = "";
 
+            // Draw SAM Polygons overlay immediately
+            const overlay = document.getElementById("sam-overlay");
+            if (overlay) {
+                overlay.innerHTML = ""; // Clear existing
+                if (m.sam_polygons && m.sam_polygons.length > 0) {
+                    m.sam_polygons.forEach(poly => {
+                        const pointsStr = poly.map(pt => `${pt[0]},${pt[1]}`).join(" ");
+                        const polygonEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                        polygonEl.setAttribute('points', pointsStr);
+                        polygonEl.setAttribute('fill', 'rgba(16, 185, 129, 0.2)');
+                        polygonEl.setAttribute('stroke', '#10b981');
+                        polygonEl.setAttribute('stroke-width', '2');
+                        overlay.appendChild(polygonEl);
+                    });
+                    document.getElementById("sam-legend").style.display = "block";
+                } else {
+                    document.getElementById("sam-legend").style.display = "none";
+                }
+            }
+
             // Helpers
             const safeVal = (v) => (v === undefined || v === null) ? 0 : v;
             const safeLabel = (v) => (v === undefined || v === null) ? "" : ` [AI Est: ${v}]`;
@@ -838,19 +809,24 @@
                 element.classList.add("active");
             };
 
-            const generateTabs = (prefix, contentFn) => {
+            const generateTabs = (prefix, activeTabId, contentFn) => {
                 const regions = [
                     { id: "head", label: "Head/Neck" },
                     { id: "upper", label: "Upper Limbs" },
                     { id: "trunk", label: "Trunk" },
                     { id: "lower", label: "Lower Limbs" }
                 ];
+
+                // If no activeTabId matches, default to head
+                let validIds = regions.map(r => r.id);
+                let targetId = validIds.includes(activeTabId) ? activeTabId : "head";
+
                 let tabsHtml = `<div class="tabs">`;
                 let contentHtml = `<div class="tabs-container">`;
                 regions.forEach((r, i) => {
-                    const active = i === 0 ? "active" : "";
+                    const active = targetId === r.id ? "active" : "";
                     tabsHtml += `<div class="tab ${active}" onclick="window.switchTab('${prefix}', '${r.id}', this)">${r.label}</div>`;
-                    contentHtml += `<div id="${prefix}-content-${r.id}" class="tab-content ${active}">${contentFn(r.id)}</div>`;
+                    contentHtml += `<div id="${prefix}-content-${r.id}" class="tab-content ${active}">${contentFn(r.id, targetId)}</div>`;
                 });
                 return tabsHtml + `</div>` + contentHtml + `</div>`;
             };
@@ -896,13 +872,85 @@
             // SCORING TEMPLATES
             const dName = d.disease ? d.disease.toLowerCase() : "";
 
+            // --- IMAGE QUALITY & SAFETY BANNER ---
+            let isBlocked = m.ai_severity_blocked === true;
+            let qualityHtml = "";
+
+            if (isBlocked) {
+                qualityHtml = `<div class="ai-banner" style="margin-bottom:15px; padding:10px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:6px; font-size:0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <strong>⚠️ AI Security Block:</strong> ${m.block_reason}
+                </div>`;
+            } else if (m.image_quality) {
+                let flags = [];
+                if (m.image_quality.is_blurry) flags.push("Blurry");
+                if (m.image_quality.has_glare) flags.push("Severe Glare");
+                if (m.image_quality.is_underexposed) flags.push("Underexposed");
+
+                if (flags.length > 0 && !dName.includes("alopecia") && !dName.includes("vitiligo")) {
+                    qualityHtml = `<div class="ai-banner" style="margin-bottom:15px; padding:10px; background:#fffbeb; color:#b45309; border:1px solid #fde68a; border-radius:6px; font-size:0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                        <strong>⚠️ Image Quality Warning:</strong> ${flags.join(", ")}. AI estimates may be degraded. Manual verification recommended.
+                    </div>`;
+                }
+            }
+
+            let confHtml = "";
+            if (!isBlocked && m.confidence_score !== undefined && m.confidence_score > 0) {
+                let color = m.confidence_score >= 80 ? "#16a34a" : (m.confidence_score >= 60 ? "#d97706" : "#dc2626");
+                let text = m.confidence_score >= 80 ? "High" : (m.confidence_score >= 60 ? "Moderate" : "Low (Capped)");
+                confHtml = `<div style="margin-bottom:15px; font-size:0.85rem; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:#64748b; font-weight:600;">Mathematical Confidence:</span>
+                    <span style="color:${color}; font-weight:bold; padding:4px 8px; border-radius:4px; background:${color}15;">${m.confidence_score}% (${text})</span>
+                </div>`;
+            }
+
+            html += qualityHtml + confHtml;
+
             if (dName.includes("psoriasis")) {
                 title = "PASI Calculator (Psoriasis)";
-                html += generateTabs("pasi", (rId) => {
-                    let c = rangeInput(`Erythema${safeLabel(m.erythema)}`, "(Redness)", `pasi-e-${rId}`, rId === "head" ? m.erythema : 0);
-                    c += rangeInput(`Induration${safeLabel(m.thickness)}`, "(Thickness)", `pasi-i-${rId}`, rId === "head" ? m.thickness : 0);
-                    c += rangeInput(`Scaling${safeLabel(m.scaling)}`, "(Flaking)", `pasi-d-${rId}`, rId === "head" ? m.scaling : 0);
-                    c += numInput("Area Score (0-6)", `pasi-a-${rId}`, 1, 6); // default to 1
+
+                // Add AI Guidance Banner
+                let mapHtml = '';
+                if (!isBlocked && (m.erythema !== undefined || m.scaling !== undefined)) {
+                    const chkStyle = `cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:10px; font-weight:600; font-size:0.95rem; transition:all 0.2s ease; color:#475569; user-select:none; flex:1; min-width:120px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.02);`;
+                    const chkOnStyle = `this.parentElement.style.background='#3b82f6'; this.parentElement.style.borderColor='#2563eb'; this.parentElement.style.color='#ffffff'; this.parentElement.style.boxShadow='0 4px 6px rgba(59,130,246,0.3)';`;
+                    const chkOffStyle = `this.parentElement.style.background='#f8fafc'; this.parentElement.style.borderColor='#e2e8f0'; this.parentElement.style.color='#475569'; this.parentElement.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)';`;
+                    const estE = m.erythema || 0;
+                    const estD = m.scaling || 0;
+
+                    mapHtml = `
+                    <div class="ai-mapping-container" style="background:#f0f9ff; border:1px solid #bae6fd; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow:0 4px 6px rgba(0,0,0,0.02);">
+                        <label style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:0.95rem;">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            Select affected parts
+                        </label>
+                        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('pasi-e-head', ${estE}); window.updateSlider('pasi-d-head', ${estD}); } else { ${chkOffStyle} window.updateSlider('pasi-e-head', 0); window.updateSlider('pasi-d-head', 0); } calculateFinalScore();"> Head/Neck
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('pasi-e-upper', ${estE}); window.updateSlider('pasi-d-upper', ${estD}); } else { ${chkOffStyle} window.updateSlider('pasi-e-upper', 0); window.updateSlider('pasi-d-upper', 0); } calculateFinalScore();"> Upper Limbs
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('pasi-e-trunk', ${estE}); window.updateSlider('pasi-d-trunk', ${estD}); } else { ${chkOffStyle} window.updateSlider('pasi-e-trunk', 0); window.updateSlider('pasi-d-trunk', 0); } calculateFinalScore();"> Trunk
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('pasi-e-lower', ${estE}); window.updateSlider('pasi-d-lower', ${estD}); } else { ${chkOffStyle} window.updateSlider('pasi-e-lower', 0); window.updateSlider('pasi-d-lower', 0); } calculateFinalScore();"> Lower Limbs
+                            </label>
+                        </div>
+                    </div>
+                    `;
+                }
+
+                html += mapHtml;
+
+                html += generateTabs("pasi", "head", (rId, activeTabId) => {
+                    let c = `<div style="padding-bottom:5px; margin-bottom:10px; border-bottom:1px solid #e2e8f0; color:#3b82f6; font-weight:600; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">⟡ Visual AI Estimates</div>`;
+                    c += rangeInput(`Erythema`, "(Redness)", `pasi-e-${rId}`, 0, 4);
+                    c += rangeInput(`Scaling`, "(Flaking)", `pasi-d-${rId}`, 0, 4);
+
+                    c += `<div style="margin-top:20px; padding-bottom:5px; margin-bottom:10px; border-bottom:1px solid #e2e8f0; color:#f59e0b; font-weight:600; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">⟡ Mandatory Clinical Input</div>`;
+                    c += rangeInput(`Induration`, "(Thickness - Requires Palpation)", `pasi-i-${rId}`, 0, 4);
+                    c += rangeInput("Area Score", "(0-6, where 1=1-9%, 6=90-100%)", `pasi-a-${rId}`, 0, 6);
                     return c;
                 });
 
@@ -917,51 +965,127 @@
                     { id: "ch", label: "Chin (x1)", factor: 1 },
                     { id: "cb", label: "Chest/Back (x3)", factor: 3 }
                 ];
+
+                let mapHtml = '';
+                if (!isBlocked && m.max_severity_grade !== undefined) {
+                    const chkStyle = `cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:10px; font-weight:600; font-size:0.95rem; transition:all 0.2s ease; color:#475569; user-select:none; flex:1; min-width:120px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.02);`;
+                    const chkOnStyle = `this.parentElement.style.background='#3b82f6'; this.parentElement.style.borderColor='#2563eb'; this.parentElement.style.color='#ffffff'; this.parentElement.style.boxShadow='0 4px 6px rgba(59,130,246,0.3)';`;
+                    const chkOffStyle = `this.parentElement.style.background='#f8fafc'; this.parentElement.style.borderColor='#e2e8f0'; this.parentElement.style.color='#475569'; this.parentElement.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)';`;
+
+                    mapHtml = `
+                    <div class="ai-mapping-container" style="background:#f0f9ff; border:1px solid #bae6fd; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow:0 4px 6px rgba(0,0,0,0.02);">
+                        <label style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:0.95rem;">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            Select affected parts
+                        </label>
+                        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-fh', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-fh', 0); } calculateFinalScore();"> Forehead
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-rc', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-rc', 0); } calculateFinalScore();"> R. Cheek
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-lc', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-lc', 0); } calculateFinalScore();"> L. Cheek
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-no', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-no', 0); } calculateFinalScore();"> Nose
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-ch', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-ch', 0); } calculateFinalScore();"> Chin
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-cb', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-cb', 0); } calculateFinalScore();"> Chest/Back
+                            </label>
+                        </div>
+                    </div>
+                    `;
+                }
+
+                html += mapHtml;
+
                 let gagsHtml = `
-                    <div style="font-size:0.85rem; color:#64748b; margin-bottom:15px; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
-                        <strong>Rule:</strong> Select the MOST SEVERE lesion present in each region. Max Score is 44.
-                        ${m.max_severity_grade !== undefined ? `<br><br><span style="padding:4px 8px; background:#e0f2fe; color:#0369a1; border-radius:4px;">AI spotted a severity grade of <b>${estSev}</b> in the image</span>` : ''}
+                    <div class="ai-banner" style="font-size:0.85rem; color:#64748b; margin-bottom:15px; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+                        <strong>Rule:</strong> Select the MOST SEVERE lesion present in each region. Max Score is 44.<br>
+                        (0=Clear, 1=Comedones, 2=Papules, 3=Pustules, 4=Nodules)
                     </div>
                 `;
                 gagsRegions.forEach(r => {
-                    gagsHtml += `
-                    <div style="margin-bottom:10px;">
-                        <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">${r.label}</label>
-                        <select id="gags-sev-${r.id}" data-factor="${r.factor}" onchange="calculateFinalScore()" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; color:#333; background:#fff;">
-                            <option value="0" ${estSev === 0 ? 'selected' : ''}>0 - Clear</option>
-                            <option value="1" ${estSev === 1 ? 'selected' : ''}>1 - Comedones</option>
-                            <option value="2" ${estSev === 2 ? 'selected' : ''}>2 - Papules</option>
-                            <option value="3" ${estSev === 3 ? 'selected' : ''}>3 - Pustules</option>
-                            <option value="4" ${estSev === 4 ? 'selected' : ''}>4 - Nodules</option>
-                        </select>
-                    </div>`;
+                    // Embed the factor in a hidden data attribute since we are substituting the <select> element
+                    gagsHtml += `<div data-gags-factor="${r.factor}" id="gags-wrapper-${r.id}">`;
+                    gagsHtml += rangeInput(r.label, "(Severity 0-4)", `gags-sev-${r.id}`, 0, 4);
+                    gagsHtml += `</div>`;
                 });
                 html += gagsHtml;
 
             } else if (dName.includes("dermatitis") || dName.includes("eczema")) {
                 title = "EASI Calculator (Atopic Dermatitis)";
-                html += generateTabs("easi", (rId) => {
-                    let c = rangeInput(`Erythema${safeLabel(m.erythema)}`, "(Redness)", `easi-e-${rId}`, rId === "head" ? m.erythema : 0, 3);
-                    c += rangeInput(`Edema/Papules${safeLabel(m.edema)}`, "(Swelling/Bumps)", `easi-ed-${rId}`, rId === "head" ? m.edema : 0, 3);
-                    c += rangeInput(`Excoriation${safeLabel(m.excoriation)}`, "(Scratch marks)", `easi-ex-${rId}`, rId === "head" ? m.excoriation : 0, 3);
-                    c += rangeInput(`Lichenification${safeLabel(m.lichenification)}`, "(Leathery thickening)", `easi-l-${rId}`, rId === "head" ? m.lichenification : 0, 3);
-                    c += numInput("Area Score (0-6)", `easi-a-${rId}`, 1, 6); // default to 1
+
+                // Add AI Mapping Section
+                let mapHtml = '';
+                if (!isBlocked && (m.erythema !== undefined || m.excoriation !== undefined)) {
+                    const chkStyle = `cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:10px; font-weight:600; font-size:0.95rem; transition:all 0.2s ease; color:#475569; user-select:none; flex:1; min-width:120px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.02);`;
+                    const chkOnStyle = `this.parentElement.style.background='#3b82f6'; this.parentElement.style.borderColor='#2563eb'; this.parentElement.style.color='#ffffff'; this.parentElement.style.boxShadow='0 4px 6px rgba(59,130,246,0.3)';`;
+                    const chkOffStyle = `this.parentElement.style.background='#f8fafc'; this.parentElement.style.borderColor='#e2e8f0'; this.parentElement.style.color='#475569'; this.parentElement.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)';`;
+                    const estE = m.erythema || 0;
+                    const estEx = m.excoriation || 0;
+
+                    mapHtml = `
+                    <div class="ai-mapping-container" style="background:#f0f9ff; border:1px solid #bae6fd; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow:0 4px 6px rgba(0,0,0,0.02);">
+                        <label style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:0.95rem;">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            Select affected parts
+                        </label>
+                        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('easi-e-head', ${estE}); window.updateSlider('easi-ex-head', ${estEx}); } else { ${chkOffStyle} window.updateSlider('easi-e-head', 0); window.updateSlider('easi-ex-head', 0); } calculateFinalScore();"> Head/Neck
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('easi-e-upper', ${estE}); window.updateSlider('easi-ex-upper', ${estEx}); } else { ${chkOffStyle} window.updateSlider('easi-e-upper', 0); window.updateSlider('easi-ex-upper', 0); } calculateFinalScore();"> Upper Limbs
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('easi-e-trunk', ${estE}); window.updateSlider('easi-ex-trunk', ${estEx}); } else { ${chkOffStyle} window.updateSlider('easi-e-trunk', 0); window.updateSlider('easi-ex-trunk', 0); } calculateFinalScore();"> Trunk
+                            </label>
+                            <label class="region-pill" style="${chkStyle}">
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('easi-e-lower', ${estE}); window.updateSlider('easi-ex-lower', ${estEx}); } else { ${chkOffStyle} window.updateSlider('easi-e-lower', 0); window.updateSlider('easi-ex-lower', 0); } calculateFinalScore();"> Lower Limbs
+                            </label>
+                        </div>
+                    </div>
+                    `;
+                }
+
+                html += mapHtml;
+
+                html += generateTabs("easi", "head", (rId, activeTabId) => {
+                    let c = `<div style="padding-bottom:5px; margin-bottom:10px; border-bottom:1px solid #e2e8f0; color:#3b82f6; font-weight:600; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">⟡ Visual AI Estimates</div>`;
+                    c += rangeInput(`Erythema`, "(Redness)", `easi-e-${rId}`, 0, 3);
+                    c += rangeInput(`Excoriation`, "(Scratch marks)", `easi-ex-${rId}`, 0, 3);
+
+                    c += `<div style="margin-top:20px; padding-bottom:5px; margin-bottom:10px; border-bottom:1px solid #e2e8f0; color:#f59e0b; font-weight:600; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">⟡ Mandatory Clinical Input</div>`;
+                    c += rangeInput(`Edema/Papules`, "(Swelling/Bumps - Requires Palpation)", `easi-ed-${rId}`, 0, 3);
+                    c += rangeInput(`Lichenification`, "(Leathery thickening)", `easi-l-${rId}`, 0, 3);
+                    c += rangeInput("Area Score", "(0-6, where 1=1-9%, 6=90-100%)", `easi-a-${rId}`, 0, 6);
                     return c;
                 });
 
             } else if (dName.includes("vitiligo")) {
                 title = "VASI Calculator (Vitiligo)";
-                let defDepig = m.depigmentation_pct !== undefined ? m.depigmentation_pct : 10;
-                let defHu = m.hand_units !== undefined ? m.hand_units : 1;
-                html += numInput(`Depigmentation %${safeLabel(m.depigmentation_pct)}`, "vasi-pct", defDepig, 100);
-                html += numInput(`Hand Units (1 Unit = 1% BSA)`, "vasi-hu", defHu, 100);
+                let defDepig = m.depigmentation_pct !== undefined ? m.depigmentation_pct : 0;
+                let defHu = 0; // default to 0
+                html += `<div style="padding-bottom:5px; margin-bottom:10px; border-bottom:1px solid #e2e8f0; color:#3b82f6; font-weight:600; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">⟡ Visual AI Estimates</div>`;
+                html += rangeInput(`Depigmentation %${safeLabel(m.depigmentation_pct)}`, "(0-100%)", "vasi-pct", defDepig, 100);
+
+                html += `<div style="margin-top:20px; padding-bottom:5px; margin-bottom:10px; border-bottom:1px solid #e2e8f0; color:#f59e0b; font-weight:600; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">⟡ Mandatory Clinical Input</div>`;
+                html += rangeInput(`Hand Units`, "(1 Unit = 1% BSA)", "vasi-hu", defHu, 100);
 
             } else if (dName.includes("melanoma") || dName.includes("nevus")) {
                 title = "ABCDE Risk Assessment";
-                html += rangeInput(`Asymmetry${safeLabel(m.asymmetry)}`, "(Mirror Mismatch)", "abcde-a", m.asymmetry, 2);
-                html += rangeInput(`Border Irregularity${safeLabel(m.border)}`, "(Compactness)", "abcde-b", m.border, 2);
-                html += rangeInput(`Color Variance${safeLabel(m.color)}`, "(Multiple Clusters)", "abcde-c", m.color, 2);
-                html += rangeInput(`Diameter Score${safeLabel(m.diameter)}`, "(>6mm)", "abcde-d", m.diameter, 1);
+                html += `<div style="padding-bottom:5px; margin-bottom:10px; border-bottom:1px solid #e2e8f0; color:#f59e0b; font-weight:600; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">⟡ Manual Clinical Input</div>`;
+                html += rangeInput(`Asymmetry`, "(Mirror Mismatch)", "abcde-a", 0, 2);
+                html += rangeInput(`Border Irregularity`, "(Compactness)", "abcde-b", 0, 2);
+                html += rangeInput(`Color Variance`, "(Multiple Clusters)", "abcde-c", 0, 2);
+                html += rangeInput(`Diameter Score`, "(>6mm)", "abcde-d", 0, 1);
+
                 html += `
                 <div style="margin-bottom:15px;">
                     <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">Evolution (History of Change)</label>
@@ -974,12 +1098,7 @@
 
             } else if (dName.includes("alopecia")) {
                 title = "SALT Calculator (Alopecia)";
-                if (m.is_blurry) {
-                    html += `
-                    <div style="padding:10px; background:#fef2f2; color:#ef4444; border-radius:6px; margin-bottom:15px; font-size:0.85rem; border:1px solid #fecaca;">
-                        ⚠️ <b>Image out of focus.</b> SALT estimation may be inaccurate. Please retake photo. (Blur Variance: ${safeLabel(m.blur_variance)})
-                    </div>`;
-                }
+
                 const saltRegions = [
                     { id: "top", label: "Top (40%)" },
                     { id: "back", label: "Back (24%)" },
@@ -990,10 +1109,10 @@
                 let contentHtml = `<div class="tabs-container">`;
                 saltRegions.forEach((r, i) => {
                     const active = i === 0 ? "active" : "";
-                    const mLoss = r.id === "top" ? m.hair_loss_pct : 0;
+                    // Default to 0, force manual assignment
                     tabsHtml += `<div class="tab ${active}" onclick="window.switchTab('salt', '${r.id}', this)">${r.label}</div>`;
                     contentHtml += `<div id="salt-content-${r.id}" class="tab-content ${active}">
-                        ${numInput(`Hair Loss % [AI Est: ${safeLabel(m.hair_loss_pct)}%]`, `salt-loss-${r.id}`, mLoss, 100)}
+                        ${rangeInput(`Hair Loss %`, "(0-100%)", `salt-loss-${r.id}`, 0, 100)}
                     </div>`;
                 });
                 html += tabsHtml + `</div>` + contentHtml + `</div>`;
@@ -1002,8 +1121,51 @@
                 html += rangeInput(`Visual Severity${safeLabel(m.visual)}`, "(0-10)", "gen-sev", 5, 10);
             }
 
+            // Add Reset Function
+            window.resetAllSliders = function () {
+                const modal = document.getElementById("scoring-modal");
+                modal.querySelectorAll("input[type=range]").forEach(inp => {
+                    inp.value = 0;
+                    inp.style.background = 'linear-gradient(to right, #0ea5e9 0%, #e2e8f0 0%)';
+                    const outId = 'out-' + inp.id;
+                    const outEl = document.getElementById(outId);
+                    if (outEl) outEl.innerText = "0";
+                });
+                modal.querySelectorAll("input[type=number]").forEach(inp => {
+                    inp.value = 0;
+                });
+                modal.querySelectorAll("select:not([id$='-map-region'])").forEach(sel => {
+                    sel.value = "0";
+                });
+
+                modal.querySelectorAll(".region-pill input[type=checkbox]").forEach(chk => {
+                    chk.checked = false;
+                    chk.parentElement.style.background = '#f8fafc';
+                    chk.parentElement.style.borderColor = '#e2e8f0';
+                    chk.parentElement.style.color = '#475569';
+                    chk.parentElement.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
+                });
+
+                modal.querySelectorAll(".ai-banner").forEach(b => b.style.opacity = "0.5");
+                calculateFinalScore();
+            };
+
+            window.updateSlider = function (id, val) {
+                const el = document.getElementById(id);
+                if (el && el.type === 'range') {
+                    el.value = val;
+                    const max = el.max || 100;
+                    el.style.background = 'linear-gradient(to right, #0ea5e9 ' + (val / max) * 100 + '%, #e2e8f0 ' + (val / max) * 100 + '%)';
+                    const out = document.getElementById('out-' + id);
+                    if (out) out.innerText = val;
+                }
+            };
+
             scoringContent.innerHTML = `
-                <h4 style="margin-top:0; color:#334155; border-bottom:1px solid #eee; padding-bottom:10px;">${title}</h4>
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:15px; padding-right:35px;">
+                    <h4 style="margin:0; color:#334155;">${title}</h4>
+                    <button onclick="resetAllSliders()" style="font-size:0.75rem; padding:4px 10px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer; font-weight:600;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">↺ Reset AI Estimates</button>
+                </div>
                 <div class="config-group" style="color:#333;">${html}</div>
             `;
             scoringModal.style.display = "flex";
@@ -1032,9 +1194,10 @@
                 const regions = ["fh", "rc", "lc", "no", "ch", "cb"];
                 regions.forEach(r => {
                     const select = document.getElementById(`gags-sev-${r}`);
-                    if (select) {
+                    const wrapper = document.getElementById(`gags-wrapper-${r}`);
+                    if (select && wrapper) {
                         const sev = parseInt(select.value) || 0;
-                        const factor = parseInt(select.getAttribute("data-factor")) || 0;
+                        const factor = parseInt(wrapper.getAttribute("data-gags-factor")) || 0;
                         gagsScore += sev * factor;
                     }
                 });
@@ -1087,7 +1250,26 @@
             diseases.forEach(d => {
                 const chip = document.createElement("div");
                 chip.className = "disease-chip";
+                // If it was already selected previously, keep it selected visually
+                if (selectedDisease === d) {
+                    chip.classList.add("selected");
+                }
                 chip.innerText = d;
+
+                // Add Click Handler for Interactive Selection and Auto-Open
+                chip.onclick = () => {
+                    // Remove 'selected' class from all other chips in the document
+                    document.querySelectorAll('.disease-chip').forEach(el => el.classList.remove('selected'));
+                    chip.classList.add("selected");
+                    selectedDisease = d;
+
+                    // Automatically open the calculator if one exists for the selected disease
+                    const diseaseKey = getCalculatorKeyForDisease(d);
+                    if (diseaseKey) {
+                        openManualCalc(diseaseKey);
+                    }
+                };
+
                 c.appendChild(chip);
             });
         }
