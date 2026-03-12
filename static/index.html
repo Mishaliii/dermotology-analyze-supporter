@@ -151,7 +151,9 @@
 
         .results-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: 1fr;
+            max-width: 700px;
+            margin: 0 auto;
             gap: 25px;
         }
 
@@ -360,7 +362,8 @@
             .floating-action-btn,
             #scoring-btn-container,
             button[class*="btn"],
-            .tabs {
+            .tabs,
+            .no-print {
                 display: none !important;
             }
 
@@ -388,6 +391,30 @@
             #image-modal,
             #scoring-modal {
                 display: none !important;
+            }
+
+            #prescription-modal {
+                position: static !important;
+                background: white !important;
+                display: block !important;
+            }
+
+            #prescription-print-area {
+                width: 100% !important;
+                max-width: 100% !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+            }
+
+            textarea {
+                border: none !important;
+                resize: none !important;
+                background: transparent !important;
+            }
+
+            input {
+                border: none !important;
+                background: transparent !important;
             }
         }
 
@@ -565,15 +592,196 @@
             Designed for clinical decision assistance and dermatology case comparison.
         </p>
 
+        <!-- Doctor session bar -->
+        <div id="session-bar"
+            style="display:flex; align-items:center; justify-content:center; gap:14px; margin-top:12px; margin-bottom:4px;">
+            <span style="font-size:0.9rem; color:rgba(255,255,255,0.75);">👨‍⚕️ Logged in as <strong
+                    id="session-doctor-name" style="color:#38bdf8;"></strong></span>
+            <button onclick="logout()"
+                style="background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.8); border:1px solid rgba(255,255,255,0.2); padding:5px 14px; border-radius:20px; font-size:0.8rem; cursor:pointer; transition:all 0.2s;"
+                onmouseover="this.style.background='rgba(239,68,68,0.25)'; this.style.color='#fca5a5';"
+                onmouseout="this.style.color='rgba(255,255,255,0.8)'; this.style.background='rgba(255,255,255,0.1)';">Logout</button>
+        </div>
+
         <div class="badges">
             <span class="badge">DINOv2 Vision Transformer</span>
             <span class="badge">kNN Retrieval</span>
             <span class="badge">Clinical Similarity Search</span>
         </div>
 
+        <!-- ===== PATIENT SELECTION STEP ===== -->
+        <div id="patient-step" style="margin:20px auto 0; max-width:560px; width:100%;">
+
+            <!-- Selected patient badge (Premium floating card) -->
+            <div id="patient-selected-bar"
+                style="display:none; align-items:center; justify-content:center; gap:14px; background:linear-gradient(145deg, rgba(16,185,129,0.15), rgba(5,150,105,0.05)); backdrop-filter:blur(12px); border:1px solid rgba(52,211,153,0.3); border-top:1px solid rgba(52,211,153,0.5); box-shadow:0 8px 25px rgba(16,185,129,0.15), inset 0 1px 0 rgba(255,255,255,0.1); border-radius:16px; padding:14px 20px; margin-bottom:8px; transition:all 0.3s ease;">
+                <!-- Glowing avatar ring -->
+                <div style="position:relative; display:flex; align-items:center; justify-content:center; width:42px; height:42px; background:rgba(16,185,129,0.2); border-radius:50%; border:1px solid rgba(52,211,153,0.4);">
+                    <div style="position:absolute; top:0; left:0; right:0; bottom:0; border-radius:50%; box-shadow:0 0 10px rgba(52,211,153,0.5); animation:pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);"></div>
+                    <span style="font-size:1.1rem; z-index:1;">&#128100;</span>
+                </div>
+                
+                <div style="text-align:left; flex:1;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div id="selected-patient-label" style="font-weight:700; color:#6ee7b7; font-size:1.05rem; letter-spacing:0.3px;"></div>
+                        <span style="background:rgba(16,185,129,0.2); color:#34d399; font-size:0.65rem; padding:2px 8px; border-radius:10px; font-weight:700; border:1px solid rgba(16,185,129,0.3); text-transform:uppercase; letter-spacing:0.5px;">Active</span>
+                    </div>
+                    <div id="selected-patient-meta"
+                        style="font-size:0.8rem; color:#94a3b8; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+                </div>
+                
+                <div style="display:flex; gap:8px;">
+                    <button onclick="openPatientHistory()"
+                        style="background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); color:#60a5fa; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:0.8rem; font-weight:600; transition:all .2s; box-shadow:0 2px 8px rgba(59,130,246,0.15);"
+                        onmouseover="this.style.background='rgba(59,130,246,0.25)'; this.style.transform='translateY(-1px)';"
+                        onmouseout="this.style.background='rgba(59,130,246,0.15)'; this.style.transform='translateY(0)';">View History</button>
+                    <button onclick="openPatientPanel()"
+                        style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#e2e8f0; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:0.8rem; font-weight:500; transition:all .2s;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.15)'; this.style.color='#fff';"
+                        onmouseout="this.style.background='rgba(255,255,255,0.08)'; this.style.color='#e2e8f0';">Change</button>
+                </div>
+            </div>
+
+            <!-- Prompt before selection -->
+            <div id="patient-prompt-bar"
+                style="display:flex; align-items:center; justify-content:space-between; background:linear-gradient(145deg, rgba(30,41,59,0.8), rgba(15,23,42,0.95)); border:1px solid rgba(59,130,246,0.3); box-shadow: 0 4px 15px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05); border-radius:12px; padding:12px 18px; cursor:pointer; transition:all 0.3s ease; position:relative; overflow:hidden;"
+                onclick="openPatientPanel()"
+                onmouseover="this.style.borderColor='rgba(59,130,246,0.7)'; this.style.boxShadow='0 6px 20px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.05)';"
+                onmouseout="this.style.borderColor='rgba(59,130,246,0.3)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)';">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div
+                        style="background:rgba(59,130,246,0.2); width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#60a5fa; font-size:1.1rem; border:1px solid rgba(59,130,246,0.3);">
+                        👤
+                    </div>
+                    <div style="text-align:left;">
+                        <div style="color:#f8fafc; font-size:0.95rem; font-weight:600; letter-spacing:0.3px;">Patient
+                            Profile</div>
+                        <div style="color:#94a3b8; font-size:0.8rem; margin-top:2px;">No patient selected</div>
+                    </div>
+                </div>
+                <div style="background:#3b82f6; color:#fff; padding:6px 14px; border-radius:20px; font-size:0.8rem; font-weight:600; box-shadow:0 2px 8px rgba(59,130,246,0.4); transition:background 0.2s;"
+                    onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                    Select Patient
+                </div>
+            </div>
+
+            <!-- Panel (slides open smoothly) -->
+            <div id="patient-panel"
+                style="max-height:0; opacity:0; background:rgba(17,24,39,0.85); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(30,41,59,0.8); border-radius:14px; margin-top:8px; overflow:hidden; transition:all 0.35s cubic-bezier(0.4, 0, 0.2, 1); pointer-events:none; box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+                <div
+                    style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <span style="font-weight:700; color:#f1f5f9; font-size:0.95rem;">Patient Selection</span>
+                    <button onclick="closePatientPanel()"
+                        style="background:rgba(255,255,255,0.06); border:none; color:#94a3b8; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:1rem; line-height:1; transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'; this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.06)'; this.style.color='#94a3b8'">&#10005;</button>
+                </div>
+                
+                <!-- Animated Tabs -->
+                <div style="display:flex; position:relative; border-bottom:1px solid rgba(255,255,255,0.05); background:rgba(0,0,0,0.2);">
+                    <button id="ptab-search" onclick="switchPatientTab('search')"
+                        style="flex:1; padding:12px 10px; background:transparent; border:none; color:#60a5fa; font-weight:600; font-size:0.85rem; cursor:pointer; font-family:inherit; transition:color 0.2s;">&#128269;
+                        Search Existing</button>
+                    <button id="ptab-new" onclick="switchPatientTab('new')"
+                        style="flex:1; padding:12px 10px; background:transparent; border:none; color:#94a3b8; font-weight:500; font-size:0.85rem; cursor:pointer; font-family:inherit; transition:color 0.2s;">&#43;
+                        New Patient</button>
+                    <!-- Animated Highlight Bar -->
+                    <div id="ptab-indicator" style="position:absolute; bottom:0; left:0; width:50%; height:2px; background:#3b82f6; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 -1px 4px rgba(59,130,246,0.5);"></div>
+                </div>
+
+                <!-- Search tab -->
+                <div id="ppanel-search" style="padding:16px 18px; position:relative;">
+                    <div style="position:relative;">
+                        <input type="text" id="patient-search-input" placeholder="Type patient name to search..."
+                            style="width:100%; padding:10px 14px; padding-right:36px; background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#f1f5f9; font-size:0.9rem; font-family:inherit; outline:none; box-sizing:border-box; transition:border-color 0.2s;"
+                            oninput="searchPatients(this.value)" onfocus="this.style.borderColor='rgba(59,130,246,0.5)'"
+                            onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+                        <!-- Tiny loading spinner (hidden by default) -->
+                        <div id="patient-search-spinner" style="display:none; position:absolute; right:12px; top:12px; width:14px; height:14px; border:2px solid rgba(255,255,255,0.1); border-top-color:#60a5fa; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+                    </div>
+                    <div id="patient-search-results" style="margin-top:12px; max-height:220px; overflow-y:auto; padding-right:4px;"></div>
+                </div>
+
+                <!-- New patient tab -->
+                <div id="ppanel-new" style="display:none; padding:16px 18px;">
+                    <div id="new-patient-error"
+                        style="display:none; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); color:#fca5a5; padding:8px 12px; border-radius:7px; font-size:0.85rem; margin-bottom:12px;">
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <div>
+                            <label
+                                style="font-size:0.75rem; color:#94a3b8; font-weight:600; display:block; margin-bottom:4px;">Full
+                                Name *</label>
+                            <input type="text" id="np-name" placeholder="e.g. Aisha Raza"
+                                style="width:100%; padding:9px 11px; background:#0d1526; border:1px solid #1e2d45; border-radius:7px; color:#f1f5f9; font-size:0.87rem; font-family:inherit; outline:none; box-sizing:border-box;"
+                                onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#1e2d45'">
+                        </div>
+                        <div>
+                            <label
+                                style="font-size:0.75rem; color:#94a3b8; font-weight:600; display:block; margin-bottom:4px;">Age
+                                *</label>
+                            <input type="number" id="np-age" placeholder="28" min="0" max="150"
+                                style="width:100%; padding:9px 11px; background:#0d1526; border:1px solid #1e2d45; border-radius:7px; color:#f1f5f9; font-size:0.87rem; font-family:inherit; outline:none; box-sizing:border-box;"
+                                onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#1e2d45'">
+                        </div>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label
+                            style="font-size:0.75rem; color:#94a3b8; font-weight:600; display:block; margin-bottom:4px;">Gender</label>
+                        <select id="np-gender"
+                            style="width:100%; padding:9px 11px; background:#0d1526; border:1px solid #1e2d45; border-radius:7px; color:#f1f5f9; font-size:0.87rem; font-family:inherit; outline:none;">
+                            <option value="">Prefer not to say</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label
+                            style="font-size:0.75rem; color:#94a3b8; font-weight:600; display:block; margin-bottom:4px;">Medical
+                            History <span style="font-weight:400; color:#475569;">(optional)</span></label>
+                        <textarea id="np-history" placeholder="e.g. Known allergies, previous conditions..." rows="2"
+                            style="width:100%; padding:9px 11px; background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:7px; color:#f1f5f9; font-size:0.87rem; font-family:inherit; outline:none; resize:vertical; box-sizing:border-box; transition:border-color 0.2s;"
+                            onfocus="this.style.borderColor='rgba(59,130,246,0.5)'"
+                            onblur="this.style.borderColor='rgba(255,255,255,0.1)'"></textarea>
+                    </div>
+                    <button onclick="createNewPatient()" id="np-submit-btn"
+                        style="width:100%; padding:11px; background:linear-gradient(135deg,#10b981,#059669); border:none; border-radius:9px; color:#fff; font-weight:700; font-size:0.95rem; font-family:inherit; cursor:pointer; box-shadow:0 4px 14px rgba(16,185,129,.35);">Create
+                        Patient &amp; Continue</button>
+                </div>
+            </div>
+        </div>
+        <!-- ===== END PATIENT STEP ===== -->
+
+        <!-- ===== PATIENT HISTORY MODAL ===== -->
+        <div id="history-modal" class="modal-overlay" style="display:none; z-index:1001;">
+            <div class="modal-content" style="max-width:600px; max-height:85vh; display:flex; flex-direction:column; padding:0; background:#0f172a; border:1px solid #1e293b; border-radius:16px; overflow:hidden;">
+                <!-- Header -->
+                <div style="padding:16px 24px; border-bottom:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.95);">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="background:rgba(59,130,246,0.2); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#60a5fa; font-size:1.2rem; border:1px solid rgba(59,130,246,0.3);">
+                            📋
+                        </div>
+                        <div>
+                            <h3 style="margin:0; font-size:1.1rem; color:#f8fafc;" id="history-modal-name">Patient History</h3>
+                            <div style="font-size:0.8rem; color:#94a3b8; margin-top:2px;" id="history-modal-meta">Loading...</div>
+                        </div>
+                    </div>
+                    <button onclick="closePatientHistory()" style="background:rgba(255,255,255,0.05); border:none; color:#94a3b8; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1.1rem; transition:all .2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'; this.style.color='#fca5a5'" onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.color='#94a3b8'">✕</button>
+                </div>
+                <!-- Body (Timeline) -->
+                <div id="history-timeline-container" style="padding:20px 24px; overflow-y:auto; flex:1; background:#0b1120;">
+                    <!-- Timeline items injected here -->
+                    <div style="text-align:center; padding:40px 0; color:#64748b;">
+                        <p>Loading patient history...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ===== END PATIENT HISTORY MODAL ===== -->
+
         <div class="upload-box" id="drop-zone">
             <h3>Upload Clinical Image</h3>
-            <button class="primary-btn">Select Image</button>
+            <button class="primary-btn" id="select-img-btn"
+                onclick="document.getElementById('file-input').click(); event.stopPropagation();">Select Image</button>
             <input type="file" id="file-input" hidden accept="image/*">
         </div>
 
@@ -614,28 +822,12 @@
         <div class="results-grid" id="results-container" style="display:none;">
 
             <div class="method-card">
-                <div class="method-title">CLS Semantic Similarity</div>
-                <div class="method-subtitle">Vision Transformer CLS Token + kNN</div>
+                <div class="method-title">Similar Cases</div>
+                <div class="method-subtitle">Visually and clinically similar reference cases</div>
                 <div id="m1-diseases"></div>
 
                 <div class="section-title">Supporting Evidence</div>
                 <div id="m1-evidence"></div>
-            </div>
-
-            <div class="method-card">
-                <div class="method-title">Prototypical Centroid Matching</div>
-                <div class="method-subtitle">Mean Embedding + Cosine Similarity</div>
-                <div id="m2-diseases"></div>
-                <div class="section-title">Supporting Evidence</div>
-                <div id="m2-evidence"></div>
-            </div>
-
-            <div class="method-card">
-                <div class="method-title">Texture-Based Retrieval</div>
-                <div class="method-subtitle">Mean Pool + kNN</div>
-                <div id="m3-diseases"></div>
-                <div class="section-title">Supporting Evidence</div>
-                <div id="m3-evidence"></div>
             </div>
 
         </div>
@@ -651,8 +843,191 @@
             <div id="scoring-content"></div>
             <div style="margin-top:20px; padding-top:20px; border-top:1px solid #eee; text-align:center;">
                 <div id="final-score-display" style="font-size:1.2rem; font-weight:bold; color:#0f172a;"></div>
-                <button class="primary-btn" style="background:#10b981; margin-top:15px;"
-                    onclick="document.getElementById('scoring-modal').style.display='none'">Save & Close</button>
+                <div id="final-score-display" style="font-size:1.2rem; font-weight:bold; color:#0f172a;"></div>
+                <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
+                    <button class="primary-btn"
+                        style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; padding:10px 20px; font-weight:600; font-size:1rem; transition:all 0.2s;"
+                        onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'"
+                        onclick="document.getElementById('scoring-modal').style.display='none'">Save & Close</button>
+                    <button class="primary-btn"
+                        style="background:linear-gradient(135deg, #0ea5e9, #3b82f6); color:white; border:none; padding:10px 24px; font-weight:600; font-size:1rem; box-shadow:0 4px 6px -1px rgba(14, 165, 233, 0.4); transition:all 0.2s;"
+                        onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 8px -1px rgba(14, 165, 233, 0.5)'"
+                        onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px -1px rgba(14, 165, 233, 0.4)'"
+                        onclick="triggerPrescriptionFlow()">Generate Treatment Plan 💊</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="prescription-modal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2000; justify-content:center; align-items:center;">
+        <div style="background:white; padding:30px; border-radius:16px; width:95%; max-width:800px; max-height:95vh; overflow-y:auto; position:relative;"
+            id="prescription-print-area">
+            <button onclick="document.getElementById('prescription-modal').style.display='none'"
+                style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;"
+                class="no-print">&times;</button>
+
+            <!-- PROFESSIONAL HEADER -->
+            <div
+                style="text-align:center; border-bottom:2px solid #38bdf8; padding-bottom:15px; margin-bottom:20px; position:relative;">
+                <h2 style="margin:0; color:#0f172a; font-family: 'Georgia', serif; font-size: 2rem;">Clinical
+                    Dermatology Treatment Plan</h2>
+                <div style="color:#64748b; font-size:0.95rem; text-transform: uppercase; letter-spacing: 1px;">
+                    Confidential Patient Record</div>
+            </div>
+
+            <!-- DYNAMIC EDITABLE PATIENT DATA -->
+            <div
+                style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; background:#f8fafc; padding:20px; border-radius:8px; border:1px solid #e2e8f0; position:relative;">
+
+                <!-- Rx Symbol Watermark -->
+                <div
+                    style="position:absolute; right:20px; top:10px; font-size:5rem; color:#cbd5e1; font-family:'Georgia', serif; opacity:0.15; user-select:none; pointer-events:none;">
+                    ℞</div>
+
+                <div style="flex:1; padding-right:20px; position:relative; z-index:2;">
+                    <div style="margin-bottom:8px; display:flex; align-items:center;">
+                        <strong style="width:70px; color:#475569;">Doctor:</strong>
+                        <span id="rx-doctor-name"
+                            style="flex:1; padding:6px; font-weight:bold; font-size:1rem; color:#0f172a;">Dr.
+                            Demo</span>
+                    </div>
+                    <div style="margin-bottom:8px; display:flex; align-items:center;">
+                        <strong style="width:70px; color:#475569;">Patient:</strong>
+                        <span id="rx-patient-name" style="flex:1; padding:6px; font-size:1rem; color:#0f172a;">John Doe
+                            (30 y/o)</span>
+                    </div>
+                </div>
+
+                <div
+                    style="flex:0.8; text-align:right; border-left:2px solid #e2e8f0; padding-left:20px; position:relative; z-index:2;">
+                    <div style="margin-bottom:8px;"><strong>Date:</strong> <span id="rx-date"
+                            style="color:#334155;"></span></div>
+                    <div style="margin-bottom:8px;"><strong>Diagnosis:</strong> <span id="rx-diagnosis"
+                            style="color:#0ea5e9; font-weight:bold;"></span></div>
+                    <div><strong>Severity:</strong> <span id="rx-severity"
+                            style="color:#dc2626; font-weight:bold;"></span></div>
+                </div>
+            </div>
+
+            <!-- DB DRIVEN RX ITEMS -->
+            <h4 style="margin-bottom:10px; color:#334155; display:flex; align-items:center; gap:8px;">
+                <svg width="20" height="20" fill="none" stroke="#2563eb" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
+                    </path>
+                </svg>
+                Pharmacological Treatments
+            </h4>
+            <div id="rx-items-container" style="margin-bottom:20px;">
+                <!-- Table Items populated here via JS -->
+            </div>
+
+            <!-- ADD CUSTOM MEDICINE WIDGET -->
+            <div class="no-print"
+                style="margin-bottom:25px; background:#f1f5f9; padding:20px; border-radius:8px; border:1px solid #cbd5e1;">
+                <h5 style="margin-top:0; color:#334155; display:flex; align-items:center; gap:8px; font-size:1rem;">
+                    <svg width="18" height="18" fill="none" stroke="#0ea5e9" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Add Medication
+                </h5>
+
+                <div style="display:flex; flex-direction:column; gap:15px;">
+                    <div style="display:flex; gap:10px; align-items:flex-end;">
+                        <div style="position:relative; flex:1;">
+                            <label
+                                style="font-size:0.8rem; color:#64748b; margin-bottom:4px; display:block; font-weight:600;">Search
+                                Smart DB</label>
+                            <input type="text" id="rx-search-input" placeholder="Search for standard medicines..."
+                                style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.95rem; background:#fff; box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);"
+                                oninput="searchMedicine(this.value)">
+                            <div id="rx-search-results"
+                                style="position:absolute; top:100%; left:0; width:100%; background:white; border:1px solid #ccc; max-height:200px; overflow-y:auto; z-index:100; display:none; box-shadow:0 10px 15px rgba(0,0,0,0.1); border-radius:0 0 6px 6px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background:#fff; padding:15px; border:1px dashed #94a3b8; border-radius:8px;">
+                        <label
+                            style="font-size:0.9rem; margin-bottom:10px; display:block; font-weight:700; color:#334155;">Create
+                            New Medicine (Adds to global DB)</label>
+                        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+                            <div style="flex:1; min-width:150px;">
+                                <label style="font-size:0.75rem; color:#64748b; font-weight:600;">Brand Name *</label>
+                                <input type="text" id="new-med-name" placeholder="e.g. Ketoconazole"
+                                    style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            </div>
+                            <div style="flex:1; min-width:150px;">
+                                <label style="font-size:0.75rem; color:#64748b; font-weight:600;">Generic Name
+                                    (opt)</label>
+                                <input type="text" id="new-med-generic" placeholder="e.g. Ketoconazole"
+                                    style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            </div>
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
+                            <div style="width:120px;">
+                                <label style="font-size:0.75rem; color:#64748b; font-weight:600;">Form *</label>
+                                <select id="new-med-form"
+                                    style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px; background:#fff;">
+                                    <option>Cream</option>
+                                    <option>Ointment</option>
+                                    <option>Gel</option>
+                                    <option>Lotion</option>
+                                    <option>Tablet</option>
+                                    <option>Capsule</option>
+                                    <option>Solution</option>
+                                    <option>Other</option>
+                                </select>
+                            </div>
+                            <div style="width:120px;">
+                                <label style="font-size:0.75rem; color:#64748b; font-weight:600;">Strength (opt)</label>
+                                <input type="text" id="new-med-strength" placeholder="e.g. 2%"
+                                    style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            </div>
+                            <div style="width:120px;">
+                                <label style="font-size:0.75rem; color:#64748b; font-weight:600;">Dose (opt)</label>
+                                <input type="text" id="new-med-dose" placeholder="e.g. 1 pill"
+                                    style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            </div>
+                            <button class="primary-btn"
+                                style="background:#10b981; padding:8px 15px; font-weight:600; border:none; border-radius:6px; box-shadow:0 2px 4px rgba(16, 185, 129, 0.3); transition:all 0.2s;"
+                                onmouseover="this.style.background='#059669'; this.style.transform='translateY(-1px)'"
+                                onmouseout="this.style.background='#10b981'; this.style.transform='none'"
+                                onclick="addManualMedicine()">Save & Add</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CLINICAL NOTES TEXTAREA -->
+            <h4 style="margin-bottom:10px; color:#334155; display:flex; align-items:center; gap:8px;">
+                <svg width="18" height="18" fill="none" stroke="#f59e0b" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                    </path>
+                </svg>
+                Clinical Notes / Provider Instructions
+            </h4>
+            <textarea id="rx-notes"
+                style="width:100%; height:100px; padding:12px; border:1px solid #cbd5e1; border-radius:8px; margin-bottom:10px; font-family:inherit; font-size:0.95rem; color:#334155; line-height:1.5; box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);"
+                placeholder="Add specific patient instructions, follow-up timeline, or warnings here..."></textarea>
+
+            <!-- EXPORT SIGNATURE AREA (HIDDEN UNLESS PRINTING) -->
+            <div style="display:none; margin-top:50px; text-align:right;" id="print-signature">
+                <div
+                    style="border-top:1px solid #000; display:inline-block; width:250px; padding-top:10px; text-align:center; font-style:italic;">
+                    Provider Signature
+                </div>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div style="display:flex; justify-content:flex-end; gap:15px; border-top:1px solid #eee; padding-top:20px;"
+                class="no-print">
+                <button class="primary-btn" style="background:#64748b;" onclick="printPrescription()">🖨️ Print
+                    Document</button>
+                <button class="primary-btn" style="background:#10b981;" onclick="submitPrescription()">💾 Save to
+                    Electronic Records</button>
             </div>
         </div>
     </div>
@@ -667,6 +1042,13 @@
     </div>
 
     <script>
+
+        // ── AUTH GUARD ─────────────────────────────────────────────────
+        const _doctorId = parseInt(sessionStorage.getItem('doctor_id') || '0');
+        const _doctorName = sessionStorage.getItem('doctor_name') || 'Doctor';
+        if (!_doctorId) {
+            window.location.href = '/static/login.html';
+        }
 
         const API_URL = "http://127.0.0.1:8000";
 
@@ -683,7 +1065,11 @@
         let currentScoringData = null;
         let selectedDisease = null; // NEW: Track which disease the doctor clicked
 
-        dropZone.onclick = () => fileInput.click();
+        dropZone.onclick = (e) => {
+            // Only open file picker when clicking the drop zone background,
+            // not when clicking the button (button handles it directly)
+            if (e.target.id !== 'select-img-btn') fileInput.click();
+        };
 
         fileInput.onchange = e => handleFile(e.target.files[0]);
 
@@ -733,6 +1119,9 @@
                         window.lastAssessmentsList = [];
                     }
 
+                    // Store image path for lazy on-demand scoring of secondary disease chips
+                    window.analyzedImagePath = data.analyzed_image_path || null;
+
                     results.style.display = "grid";
 
                     /* AUTO SCROLL */
@@ -762,10 +1151,38 @@
         function openManualCalc(diseaseName) {
             let existingData = null;
             if (window.lastAssessmentsList) {
-                existingData = window.lastAssessmentsList.find(a => a.disease.toLowerCase().includes(diseaseName.toLowerCase()));
+                existingData = window.lastAssessmentsList.find(a => a.disease.toLowerCase().includes(diseaseName.toLowerCase()) || diseaseName.toLowerCase().includes(a.disease.toLowerCase().split('_')[0]));
             }
-            const dataToPass = existingData || { disease: diseaseName, metrics: {} };
-            openScoringModal(dataToPass);
+
+            if (existingData) {
+                openScoringModal(existingData);
+            } else if (window.analyzedImagePath) {
+                // Score this disease on-demand (lazy load)
+                const scoringContent = document.getElementById('scoring-content');
+                const modal = document.getElementById('scoring-modal');
+                if (scoringContent) scoringContent.innerHTML = `<div style="text-align:center; padding:40px;"><div class="spinner" style="width:40px;height:40px;border:4px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 16px;"></div><div style="color:#64748b;">Analysing image for <b>${diseaseName.replace(/_/g, ' ')}</b>...</div></div>`;
+                if (modal) modal.style.display = 'flex';
+                fetch(`${API_URL}/score_disease`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_path: window.analyzedImagePath, disease_name: diseaseName })
+                })
+                    .then(r => r.json())
+                    .then(resp => {
+                        if (resp.success) {
+                            const newEntry = { disease: resp.disease, metrics: resp.metrics };
+                            window.lastAssessmentsList = window.lastAssessmentsList || [];
+                            window.lastAssessmentsList.push(newEntry);
+                            openScoringModal(newEntry);
+                        } else {
+                            // Fallback: open empty modal
+                            openScoringModal({ disease: diseaseName, metrics: {} });
+                        }
+                    })
+                    .catch(() => openScoringModal({ disease: diseaseName, metrics: {} }));
+            } else {
+                openScoringModal({ disease: diseaseName, metrics: {} });
+            }
         }
 
         function openScoringModal(data) {
@@ -971,31 +1388,37 @@
                     const chkStyle = `cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:10px; font-weight:600; font-size:0.95rem; transition:all 0.2s ease; color:#475569; user-select:none; flex:1; min-width:120px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.02);`;
                     const chkOnStyle = `this.parentElement.style.background='#3b82f6'; this.parentElement.style.borderColor='#2563eb'; this.parentElement.style.color='#ffffff'; this.parentElement.style.boxShadow='0 4px 6px rgba(59,130,246,0.3)';`;
                     const chkOffStyle = `this.parentElement.style.background='#f8fafc'; this.parentElement.style.borderColor='#e2e8f0'; this.parentElement.style.color='#475569'; this.parentElement.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)';`;
+                    const hasRegional = (m.regional_scores !== undefined && m.regional_scores !== null);
+
+                    // Get the actual per-region AI score. Use it directly — 0 means AI saw no lesions there.
+                    // Only fall back to estSev if regional_scores dict is entirely missing.
+                    const getRegScore = (key) => hasRegional && m.regional_scores[key] !== undefined ? m.regional_scores[key] : estSev;
 
                     mapHtml = `
                     <div class="ai-mapping-container" style="background:#f0f9ff; border:1px solid #bae6fd; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow:0 4px 6px rgba(0,0,0,0.02);">
-                        <label style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:0.95rem;">
+                        <label style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:8px; margin-bottom:4px; font-size:0.95rem;">
                             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                             Select affected parts
                         </label>
+                        <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">Check all regions where lesions are present. Severity will be set based on AI estimate.</div>
                         <div style="display:flex; flex-wrap:wrap; gap:10px;">
                             <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-fh', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-fh', 0); } calculateFinalScore();"> Forehead
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-fh', ${getRegScore('fh')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-fh', 0); } calculateFinalScore();"> Forehead
                             </label>
                             <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-rc', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-rc', 0); } calculateFinalScore();"> R. Cheek
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-rc', ${getRegScore('rc')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-rc', 0); } calculateFinalScore();"> R. Cheek
                             </label>
                             <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-lc', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-lc', 0); } calculateFinalScore();"> L. Cheek
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-lc', ${getRegScore('lc')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-lc', 0); } calculateFinalScore();"> L. Cheek
                             </label>
                             <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-no', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-no', 0); } calculateFinalScore();"> Nose
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-no', ${getRegScore('no')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-no', 0); } calculateFinalScore();"> Nose
                             </label>
                             <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-ch', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-ch', 0); } calculateFinalScore();"> Chin
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-ch', ${getRegScore('ch')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-ch', 0); } calculateFinalScore();"> Chin
                             </label>
                             <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-cb', ${estSev}); } else { ${chkOffStyle} window.updateSlider('gags-sev-cb', 0); } calculateFinalScore();"> Chest/Back
+                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-cb', ${getRegScore('cb')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-cb', 0); } calculateFinalScore();"> Chest/Back
                             </label>
                         </div>
                     </div>
@@ -1021,7 +1444,7 @@
             } else if (dName.includes("dermatitis") || dName.includes("eczema")) {
                 title = "EASI Calculator (Atopic Dermatitis)";
 
-                // Add AI Mapping Section
+                // Add AI Mapping Section with stepper
                 let mapHtml = '';
                 if (!isBlocked && (m.erythema !== undefined || m.excoriation !== undefined)) {
                     const chkStyle = `cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:10px; font-weight:600; font-size:0.95rem; transition:all 0.2s ease; color:#475569; user-select:none; flex:1; min-width:120px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.02);`;
@@ -1031,28 +1454,185 @@
                     const estEx = m.excoriation || 0;
 
                     mapHtml = `
-                    <div class="ai-mapping-container" style="background:#f0f9ff; border:1px solid #bae6fd; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow:0 4px 6px rgba(0,0,0,0.02);">
-                        <label style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:0.95rem;">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                            Select affected parts
-                        </label>
-                        <div style="display:flex; flex-wrap:wrap; gap:10px;">
-                            <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('easi-e-head', ${estE}); window.updateSlider('easi-ex-head', ${estEx}); } else { ${chkOffStyle} window.updateSlider('easi-e-head', 0); window.updateSlider('easi-ex-head', 0); } calculateFinalScore();"> Head/Neck
-                            </label>
-                            <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('easi-e-upper', ${estE}); window.updateSlider('easi-ex-upper', ${estEx}); } else { ${chkOffStyle} window.updateSlider('easi-e-upper', 0); window.updateSlider('easi-ex-upper', 0); } calculateFinalScore();"> Upper Limbs
-                            </label>
-                            <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('easi-e-trunk', ${estE}); window.updateSlider('easi-ex-trunk', ${estEx}); } else { ${chkOffStyle} window.updateSlider('easi-e-trunk', 0); window.updateSlider('easi-ex-trunk', 0); } calculateFinalScore();"> Trunk
-                            </label>
-                            <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('easi-e-lower', ${estE}); window.updateSlider('easi-ex-lower', ${estEx}); } else { ${chkOffStyle} window.updateSlider('easi-e-lower', 0); window.updateSlider('easi-ex-lower', 0); } calculateFinalScore();"> Lower Limbs
-                            </label>
+                    <div class="ai-mapping-container" style="background:linear-gradient(145deg,#f0f9ff,#e8f4fd); border:1px solid #bae6fd; padding:0; border-radius:14px; margin-bottom:20px; box-shadow:0 4px 16px rgba(14,165,233,0.10); overflow:hidden;">
+                        <!-- Header -->
+                        <div style="background:linear-gradient(135deg,#0ea5e9,#3b82f6); padding:14px 18px; display:flex; align-items:center; gap:10px;">
+                            <svg width="18" height="18" fill="none" stroke="white" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                            <span style="font-weight:700; color:#fff; font-size:0.95rem; letter-spacing:0.2px;">Select Affected Body Regions</span>
+                        </div>
+                        <!-- Body -->
+                        <div style="padding:16px 18px;">
+                            <div style="font-size:0.76rem; color:#64748b; margin-bottom:14px; display:flex; align-items:center; gap:6px;">
+                                <svg width="13" height="13" fill="none" stroke="#94a3b8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
+                                Check all regions where eczema is present. AI estimates will pre-fill severity sliders.
+                            </div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
+                                <label class="region-pill easi-pill" style="${chkStyle} transition:all 0.2s ease;" data-region="head"
+                                    onmouseover="if(!this.querySelector('input').checked){this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 14px rgba(14,165,233,0.15)'; this.style.borderColor='#7dd3fc';}"
+                                    onmouseout="if(!this.querySelector('input').checked){this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'; this.style.borderColor='#e2e8f0';}">
+                                    <input type="checkbox" id="easi-chk-head" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;"
+                                        onchange="if(this.checked){${chkOnStyle} window.updateSlider('easi-e-head',${estE}); window.updateSlider('easi-ex-head',${estEx}); this.parentElement.style.transform='translateY(0)';} else {${chkOffStyle} window.updateSlider('easi-e-head',0); window.updateSlider('easi-ex-head',0);} calculateFinalScore(); window.easiUpdateConfirmBtn();">
+                                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0;"><circle cx="12" cy="8" r="4" stroke-width="2"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke-width="2" stroke-linecap="round"/></svg>
+                                    Head / Neck
+                                </label>
+                                <label class="region-pill easi-pill" style="${chkStyle} transition:all 0.2s ease;" data-region="upper"
+                                    onmouseover="if(!this.querySelector('input').checked){this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 14px rgba(14,165,233,0.15)'; this.style.borderColor='#7dd3fc';}"
+                                    onmouseout="if(!this.querySelector('input').checked){this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'; this.style.borderColor='#e2e8f0';}">
+                                    <input type="checkbox" id="easi-chk-upper" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;"
+                                        onchange="if(this.checked){${chkOnStyle} window.updateSlider('easi-e-upper',${estE}); window.updateSlider('easi-ex-upper',${estEx}); this.parentElement.style.transform='translateY(0)';} else {${chkOffStyle} window.updateSlider('easi-e-upper',0); window.updateSlider('easi-ex-upper',0);} calculateFinalScore(); window.easiUpdateConfirmBtn();">
+                                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11V7a5 5 0 0110 0v4M5 11h14l-1 9H6l-1-9z"/></svg>
+                                    Upper Limbs
+                                </label>
+                                <label class="region-pill easi-pill" style="${chkStyle} transition:all 0.2s ease;" data-region="trunk"
+                                    onmouseover="if(!this.querySelector('input').checked){this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 14px rgba(14,165,233,0.15)'; this.style.borderColor='#7dd3fc';}"
+                                    onmouseout="if(!this.querySelector('input').checked){this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'; this.style.borderColor='#e2e8f0';}">
+                                    <input type="checkbox" id="easi-chk-trunk" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;"
+                                        onchange="if(this.checked){${chkOnStyle} window.updateSlider('easi-e-trunk',${estE}); window.updateSlider('easi-ex-trunk',${estEx}); this.parentElement.style.transform='translateY(0)';} else {${chkOffStyle} window.updateSlider('easi-e-trunk',0); window.updateSlider('easi-ex-trunk',0);} calculateFinalScore(); window.easiUpdateConfirmBtn();">
+                                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0;"><rect x="5" y="4" width="14" height="16" rx="3" stroke-width="2"/><path stroke-linecap="round" stroke-width="1.5" d="M9 9h6M9 13h6M9 17h3"/></svg>
+                                    Trunk
+                                </label>
+                                <label class="region-pill easi-pill" style="${chkStyle} transition:all 0.2s ease;" data-region="lower"
+                                    onmouseover="if(!this.querySelector('input').checked){this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 14px rgba(14,165,233,0.15)'; this.style.borderColor='#7dd3fc';}"
+                                    onmouseout="if(!this.querySelector('input').checked){this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'; this.style.borderColor='#e2e8f0';}">
+                                    <input type="checkbox" id="easi-chk-lower" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;"
+                                        onchange="if(this.checked){${chkOnStyle} window.updateSlider('easi-e-lower',${estE}); window.updateSlider('easi-ex-lower',${estEx}); this.parentElement.style.transform='translateY(0)';} else {${chkOffStyle} window.updateSlider('easi-e-lower',0); window.updateSlider('easi-ex-lower',0);} calculateFinalScore(); window.easiUpdateConfirmBtn();">
+                                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4h8v8l-2 8H10L8 12V4z"/></svg>
+                                    Lower Limbs
+                                </label>
+                            </div>
+
+                            <!-- Confirm button -->
+                            <div id="easi-confirm-row" style="display:none;">
+                                <button id="easi-confirm-btn" onclick="window.easiConfirm()"
+                                    style="width:100%; background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; border:none; padding:12px 24px; border-radius:10px; font-weight:700; font-size:0.9rem; cursor:pointer; box-shadow:0 4px 12px rgba(59,130,246,0.35); transition:all 0.2s ease; display:flex; align-items:center; justify-content:center; gap:8px; letter-spacing:0.3px;"
+                                    onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 16px rgba(59,130,246,0.45)';"
+                                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.35)';">
+                                    <svg width="16" height="16" fill="none" stroke="white" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    Confirm Selection
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stepper navigator -->
+                    <div id="easi-stepper" style="display:none; background:#fff; border:1px solid #e2e8f0; border-radius:14px; margin-bottom:18px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+                        <!-- Progress bar -->
+                        <div style="height:3px; background:#e2e8f0;">
+                            <div id="easi-progress-bar" style="height:100%; background:linear-gradient(90deg,#3b82f6,#6366f1); transition:width 0.4s ease; width:0%;"></div>
+                        </div>
+                        <!-- Step content -->
+                        <div style="padding:12px 18px; display:flex; align-items:center; gap:12px;">
+                            <button onclick="window.easiStepBack()" id="easi-btn-back"
+                                style="background:#f1f5f9; border:1px solid #e2e8f0; padding:8px 14px; border-radius:8px; font-weight:600; cursor:pointer; color:#475569; font-size:0.82rem; transition:all 0.2s; display:flex; align-items:center; gap:5px; flex-shrink:0;"
+                                onmouseover="this.style.background='#e2e8f0';" onmouseout="this.style.background='#f1f5f9';">
+                                ← Back
+                            </button>
+                            <div style="flex:1; text-align:center;">
+                                <span id="easi-step-label" style="font-weight:700; color:#0f172a; font-size:0.9rem;"></span>
+                                <div id="easi-step-dots" style="display:flex; justify-content:center; gap:5px; margin-top:5px;"></div>
+                            </div>
+                            <button onclick="window.easiStepNext()" id="easi-btn-next"
+                                style="background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; border:none; padding:8px 18px; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.82rem; transition:all 0.2s; display:flex; align-items:center; gap:5px; flex-shrink:0; box-shadow:0 2px 6px rgba(59,130,246,0.3);"
+                                onmouseover="this.style.transform='translateY(-1px)';" onmouseout="this.style.transform='translateY(0)';">
+                                Next →
+                            </button>
                         </div>
                     </div>
                     `;
                 }
+
+                // Stepper logic functions (defined after HTML is injected into DOM via setTimeout)
+                setTimeout(() => {
+                    const EASI_REGIONS = [
+                        { id: "head", label: "Head / Neck" },
+                        { id: "upper", label: "Upper Limbs" },
+                        { id: "trunk", label: "Trunk" },
+                        { id: "lower", label: "Lower Limbs" }
+                    ];
+                    let easiSelected = [];   // ordered list of checked region ids
+                    let easiStep = 0;        // current index into easiSelected
+
+                    window.easiUpdateConfirmBtn = function () {
+                        easiSelected = EASI_REGIONS
+                            .filter(r => { const el = document.getElementById(`easi-chk-${r.id}`); return el && el.checked; })
+                            .map(r => r.id);
+                        const row = document.getElementById("easi-confirm-row");
+                        if (row) row.style.display = easiSelected.length > 0 ? "block" : "none";
+                        // Hide stepper again if selection changes
+                        const stepper = document.getElementById("easi-stepper");
+                        if (stepper) stepper.style.display = "none";
+                    };
+
+                    window.easiConfirm = function () {
+                        easiSelected = EASI_REGIONS
+                            .filter(r => { const el = document.getElementById(`easi-chk-${r.id}`); return el && el.checked; })
+                            .map(r => r.id);
+                        if (easiSelected.length === 0) return;
+                        easiStep = 0;
+                        const stepper = document.getElementById("easi-stepper");
+                        if (stepper) stepper.style.display = "flex";
+                        window.easiGotoStep(easiStep);
+                    };
+
+                    window.easiGotoStep = function (idx) {
+                        if (easiSelected.length === 0) return;
+                        easiStep = Math.max(0, Math.min(idx, easiSelected.length - 1));
+                        const rId = easiSelected[easiStep];
+                        const region = EASI_REGIONS.find(r => r.id === rId);
+
+                        // Find the easi tab whose onclick contains this rId and activate it
+                        const modal = document.getElementById("scoring-modal");
+                        const allTabs = modal ? modal.querySelectorAll(".tab") : [];
+                        let matchedTab = null;
+                        allTabs.forEach(t => {
+                            const oc = t.getAttribute("onclick") || "";
+                            if (oc.includes(`'easi'`) && oc.includes(`'${rId}'`)) matchedTab = t;
+                        });
+                        if (matchedTab) window.switchTab("easi", rId, matchedTab);
+
+                        // Update progress bar
+                        const bar = document.getElementById("easi-progress-bar");
+                        if (bar) bar.style.width = `${((easiStep + 1) / easiSelected.length) * 100}%`;
+
+                        // Update step dots
+                        const dotsEl = document.getElementById("easi-step-dots");
+                        if (dotsEl) {
+                            dotsEl.innerHTML = easiSelected.map((_, i) =>
+                                `<span style="width:8px; height:8px; border-radius:50%; display:inline-block; transition:all 0.3s;
+                                    background:${i === easiStep ? '#3b82f6' : i < easiStep ? '#93c5fd' : '#e2e8f0'};
+                                    transform:${i === easiStep ? 'scale(1.3)' : 'scale(1)'};"></span>`
+                            ).join('');
+                        }
+
+                        // Update stepper label
+                        const lbl = document.getElementById("easi-step-label");
+                        if (lbl) lbl.textContent = `Region ${easiStep + 1} of ${easiSelected.length}: ${region.label}`;
+
+                        // Update Back/Next button state
+                        const btnNext = document.getElementById("easi-btn-next");
+                        const btnBack = document.getElementById("easi-btn-back");
+                        const isLast = easiStep === easiSelected.length - 1;
+                        if (btnNext) {
+                            btnNext.textContent = isLast ? "Done ✓" : "Next →";
+                            btnNext.style.background = isLast ? "linear-gradient(135deg,#10b981,#059669)" : "linear-gradient(135deg,#3b82f6,#2563eb)";
+                        }
+                        if (btnBack) { btnBack.style.opacity = easiStep === 0 ? "0.4" : "1"; btnBack.disabled = easiStep === 0; }
+                    };
+
+                    window.easiStepNext = function () {
+                        if (easiStep < easiSelected.length - 1) {
+                            window.easiGotoStep(easiStep + 1);
+                        } else {
+                            // Done — hide stepper, show final score
+                            const stepper = document.getElementById("easi-stepper");
+                            if (stepper) stepper.style.display = "none";
+                        }
+                    };
+
+                    window.easiStepBack = function () {
+                        if (easiStep > 0) window.easiGotoStep(easiStep - 1);
+                    };
+                }, 100);
 
                 html += mapHtml;
 
@@ -1067,6 +1647,7 @@
                     c += rangeInput("Area Score", "(0-6, where 1=1-9%, 6=90-100%)", `easi-a-${rId}`, 0, 6);
                     return c;
                 });
+
 
             } else if (dName.includes("vitiligo")) {
                 title = "VASI Calculator (Vitiligo)";
@@ -1326,12 +1907,6 @@
             renderDiseases("m1-diseases", data.cls_knn.top_diseases.map(d => d[0]));
             renderEvidence("m1-evidence", data.cls_knn.similar_cases);
 
-            renderDiseases("m2-diseases", data.mean_cosine.top_diseases.map(d => d[0]));
-            renderEvidence("m2-evidence", data.mean_cosine.similar_cases);
-
-            renderDiseases("m3-diseases", data.mean_knn.top_diseases.map(d => d[0]));
-            renderEvidence("m3-evidence", data.mean_knn.similar_cases);
-
         }
 
         function openModal(src, diseaseName = "", similarity = -1) {
@@ -1362,6 +1937,547 @@
                 closeModal();
             }
         };
+
+        // -------------------------------------------------------------
+        // PRESCRIPTION LOGIC
+        // -------------------------------------------------------------
+
+        let currentActiveCaseId = null;
+        let currentRxItems = [];
+
+        function extractNumericScore(text) {
+            if (!text) return 0;
+            const match = text.match(/[\d.]+/);
+            return match ? Math.round(parseFloat(match[0])) : 0;
+        }
+
+        function triggerPrescriptionFlow() {
+            // Get current severity
+            calculateFinalScore();
+            const severityText = document.getElementById("final-score-display").innerText;
+            const numericScore = extractNumericScore(severityText);
+
+            // We use the top prediction logic OR the user selected disease
+            const currentDisease = selectedDisease || (currentScoringData && currentScoringData.disease) || "Unknown";
+            const imgEl = document.getElementById("preview-img");
+            let imgUrl = imgEl ? imgEl.src : "";
+
+            // 1. CREATE CASE API
+            fetch(`/create_case`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    doctor_id: _doctorId,
+                    patient_id: currentPatient ? currentPatient.id : 1,
+                    image_path: imgUrl,
+                    predicted_disease_name: currentScoringData && currentScoringData.disease ? currentScoringData.disease : currentDisease,
+                    confirmed_disease_name: currentDisease,
+                    severity_json: { raw_text: severityText, numeric: numericScore },
+                    ai_confidence: currentScoringData && currentScoringData.metrics ? currentScoringData.metrics.confidence_score || 0 : 0
+                })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        currentActiveCaseId = data.case_id;
+                        document.getElementById("rx-doctor-name").innerText = data.doctor_name;
+                        document.getElementById("rx-patient-name").innerText = data.patient_name;
+
+                        // 2. Fetch treatment suggestions
+                        fetch(`/generate_prescription`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                disease_name: currentDisease,
+                                severity_score: numericScore
+                            })
+                        })
+                            .then(r => r.json())
+                            .then(rxData => {
+                                openPrescriptionModal(currentDisease, severityText, rxData.suggestions || []);
+                            });
+                    } else {
+                        alert("Error creating patient case: " + data.error);
+                    }
+                })
+                .catch(e => alert("Network Error: " + e));
+        }
+
+        function openPrescriptionModal(disease, severityStr, suggestions) {
+            // Hide scoring modal
+            document.getElementById("scoring-modal").style.display = "none";
+
+            // Reset existing rows
+            currentRxItems = [];
+
+            // Set Headers
+            const today = new Date().toLocaleDateString();
+            document.getElementById("rx-date").innerText = today;
+            document.getElementById("rx-diagnosis").innerText = disease;
+            document.getElementById("rx-severity").innerText = severityStr;
+
+            // Render AI suggestions into the table
+            suggestions.forEach(s => {
+                addPrescriptionItem(s.medicine_id, s.name, s.dose, "Daily", s.duration, "");
+            });
+
+            if (suggestions.length === 0) {
+                renderRxTable();
+            }
+
+            document.getElementById("rx-notes").value = "";
+            document.getElementById("prescription-modal").style.display = "flex";
+        }
+
+        function renderRxTable() {
+            const container = document.getElementById("rx-items-container");
+            if (currentRxItems.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px; border:1px dashed #cbd5e1; border-radius:8px;">No medications added yet. Use the search below.</div>`;
+                return;
+            }
+
+            let html = `
+                <table style="width:100%; border-collapse:collapse; font-size:0.95rem; border:2px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                    <thead>
+                        <tr style="background:#f1f5f9; text-align:left; color:#334155;">
+                            <th style="padding:12px; border-bottom:2px solid #cbd5e1; width:35%;">Medication Details</th>
+                            <th style="padding:12px; border-bottom:2px solid #cbd5e1; width:20%;">Dosage</th>
+                            <th style="padding:12px; border-bottom:2px solid #cbd5e1; width:20%;">Frequency</th>
+                            <th style="padding:12px; border-bottom:2px solid #cbd5e1; width:15%;">Duration</th>
+                            <th style="padding:12px; border-bottom:2px solid #cbd5e1; width:10%; text-align:center;" class="no-print">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            currentRxItems.forEach((item, idx) => {
+                // Formatting name display to look clean
+                const metaText = item.instructions ? `<br><span style="font-size:0.8rem; color:#64748b; font-weight:normal;">[${item.instructions}] Autogenerated Match</span>` : `<br><span style="font-size:0.8rem; color:#64748b; font-weight:normal;">User Input</span>`;
+
+                html += `
+                    <tr style="border-bottom:1px solid #e2e8f0; background:#fff;">
+                        <td style="padding:12px; font-weight:700; color:#0f172a;">${item.name}${metaText}</td>
+                        <td style="padding:10px;">
+                            <input class="rx-input" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.9rem; background:#f8fafc;" value="${item.dose}" onchange="currentRxItems[${idx}].dose=this.value">
+                        </td>
+                        <td style="padding:10px;">
+                            <input class="rx-input" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.9rem; background:#f8fafc;" value="${item.frequency}" onchange="currentRxItems[${idx}].frequency=this.value">
+                        </td>
+                        <td style="padding:10px;">
+                            <input class="rx-input" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.9rem; background:#f8fafc;" value="${item.duration}" onchange="currentRxItems[${idx}].duration=this.value">
+                        </td>
+                        <td style="padding:10px; text-align:center;" class="no-print">
+                            <button onclick="removeRxItem(${idx})" style="background:#fee2e2; border:1px solid #fca5a5; color:#ef4444; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:0.85rem;" title="Remove Item">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        // Exposed global scope helper
+        window.addManualMedicine = function () {
+            const nameInput = document.getElementById("new-med-name");
+            const genericInput = document.getElementById("new-med-generic");
+            const formInput = document.getElementById("new-med-form");
+            const strengthInput = document.getElementById("new-med-strength");
+            const doseInput = document.getElementById("new-med-dose");
+
+            const name = nameInput.value.trim();
+            if (!name) {
+                alert("Please provide at least a Brand Name.");
+                return;
+            }
+
+            const diseaseName = document.getElementById("rx-diagnosis").innerText || 'Unknown Disease';
+
+            // Call backend to persist the new medicine
+            fetch('/medicine/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    generic_name: genericInput.value.trim() || '',
+                    form: formInput.value,
+                    strength: strengthInput.value.trim() || '',
+                    category: diseaseName + ' Treatment'
+                })
+            })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        addPrescriptionItem(d.medicine_id, name, doseInput.value.trim(), "", "", formInput.value);
+                        // clear form
+                        nameInput.value = "";
+                        genericInput.value = "";
+                        strengthInput.value = "";
+                        doseInput.value = "";
+                    } else {
+                        alert('Error adding custom medicine: ' + d.error);
+                    }
+                })
+                .catch(e => alert("Network error adding medicine: " + e));
+        };
+
+        function addPrescriptionItem(id, name, dose = "", freq = "", dur = "", ins = "") {
+            // Avoid duplicates
+            if (currentRxItems.find(i => i.medicine_id === id)) return;
+
+            currentRxItems.push({
+                medicine_id: id,
+                name: name,
+                dose: dose,
+                frequency: freq,
+                duration: dur,
+                instructions: ins
+            });
+            renderRxTable();
+        }
+
+        function removeRxItem(index) {
+            currentRxItems.splice(index, 1);
+            renderRxTable();
+        }
+
+        let searchTimeout = null;
+        function searchMedicine(query) {
+            const resultsBox = document.getElementById("rx-search-results");
+            if (query.length < 2) {
+                resultsBox.style.display = "none";
+                return;
+            }
+
+            // Grab the confirmed disease from the prescription header
+            const confirmedDisease = document.getElementById("rx-diagnosis")
+                ? document.getElementById("rx-diagnosis").innerText.trim()
+                : "";
+
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const url = confirmedDisease
+                    ? `/medicines?search=${encodeURIComponent(query)}&disease=${encodeURIComponent(confirmedDisease)}`
+                    : `/medicines?search=${encodeURIComponent(query)}`;
+
+                fetch(url)
+                    .then(r => r.json())
+                    .then(items => {
+                        if (items.length === 0) {
+                            resultsBox.innerHTML = `<div style="padding:12px; color:#64748b; font-size:0.9rem; font-style:italic;">
+                                No medicines found for <strong>${confirmedDisease || 'this disease'}</strong> matching "${query}".<br>
+                                <span style="font-size:0.8rem; color:#94a3b8;">Use the "Add Custom Medicine" section below to add it manually.</span>
+                            </div>`;
+                        } else {
+                            const diseaseTag = confirmedDisease
+                                ? `<span style="font-size:0.7rem; background:#dcfce7; color:#16a34a; padding:2px 6px; border-radius:4px; font-weight:600; margin-left:6px;">✓ ${confirmedDisease}</span>`
+                                : '';
+                            resultsBox.innerHTML = items.map(m => `
+                            <div style="padding:12px; cursor:pointer; border-bottom:1px solid #f1f5f9; transition:all 0.2s;" class="med-result" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'" onclick="addPrescriptionItem(${m.id}, '${m.name}', '', '', '', '${m.form}'); document.getElementById('rx-search-input').value=''; document.getElementById('rx-search-results').style.display='none';">
+                                <div style="font-weight:700; color:#0f172a;">${m.name}${diseaseTag}</div>
+                                <div style="font-size:0.8rem; color:#64748b;">${m.generic_name || m.name} &bull; ${m.form} &bull; ${m.strength || 'Standard'}</div>
+                            </div>
+                        `).join('');
+                        }
+                        resultsBox.style.display = "block";
+                    });
+            }, 300);
+        }
+
+        // Hide autocomplete if clicked outside
+        document.addEventListener('click', function (e) {
+            const box = document.getElementById('rx-search-results');
+            const inp = document.getElementById('rx-search-input');
+            if (box && e.target !== box && e.target !== inp) {
+                box.style.display = 'none';
+            }
+        });
+
+        function submitPrescription() {
+            if (!currentActiveCaseId) return alert("System Error: No Active Case ID");
+
+            const payload = {
+                case_id: currentActiveCaseId,
+                notes: document.getElementById("rx-notes").value,
+                items: currentRxItems
+            };
+
+            fetch(`/save_prescription`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        alert("Prescription saved successfully to Electronic Health Records!");
+                        document.getElementById("prescription-modal").style.display = "none";
+                        // Reset items pool for next Rx
+                        currentRxItems = [];
+                    } else {
+                        alert("Failed to save: " + d.error);
+                    }
+                })
+                .catch(e => alert("Network Error: " + e));
+        }
+
+        window.printPrescription = function () {
+            // Unhide signature line for print
+            document.getElementById("print-signature").style.display = "block";
+            window.print();
+            // Hide it back just in case they cancel print and stay on modal
+            setTimeout(() => { document.getElementById("print-signature").style.display = "none"; }, 500);
+        };
+
+        // ── AUTH HELPERS ────────────────────────────────────────────────
+        // Show logged-in doctor name in header
+        const sessionNameEl = document.getElementById('session-doctor-name');
+        if (sessionNameEl) sessionNameEl.textContent = _doctorName;
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = '/static/login.html';
+        }
+
+        // ── PATIENT PANEL ────────────────────────────────────────────────
+        let currentPatient = null;  // { id, name, age, gender }
+        let _patientSearchTimer = null;
+
+        function openPatientPanel() {
+            const panel = document.getElementById('patient-panel');
+            panel.style.display = 'block';
+            // Slight delay to allow display:block to apply before animating opacity/height
+            setTimeout(() => {
+                panel.style.maxHeight = '600px';
+                panel.style.opacity = '1';
+                panel.style.pointerEvents = 'auto';
+            }, 10);
+            
+            // Load all patients on open
+            searchPatients('');
+            document.getElementById('patient-search-input').value = '';
+            setTimeout(() => document.getElementById('patient-search-input').focus(), 300); // wait for animation
+        }
+
+        function closePatientPanel() {
+            const panel = document.getElementById('patient-panel');
+            panel.style.maxHeight = '0';
+            panel.style.opacity = '0';
+            panel.style.pointerEvents = 'none';
+            // Wait for animation to finish before hiding completely
+            setTimeout(() => {
+                if (panel.style.opacity === '0') panel.style.display = 'none';
+            }, 350);
+        }
+
+        function switchPatientTab(tab) {
+            const isSearch = tab === 'search';
+            const searchPanel = document.getElementById('ppanel-search');
+            const newPanel = document.getElementById('ppanel-new');
+            
+            if (isSearch) {
+                searchPanel.style.display = 'block';
+                newPanel.style.display = 'none';
+                document.getElementById('ptab-indicator').style.left = '0';
+            } else {
+                searchPanel.style.display = 'none';
+                newPanel.style.display = 'block';
+                document.getElementById('ptab-indicator').style.left = '50%';
+            }
+            
+            const btnSearch = document.getElementById('ptab-search');
+            const btnNew = document.getElementById('ptab-new');
+            
+            btnSearch.style.color = isSearch ? '#60a5fa' : '#94a3b8';
+            btnNew.style.color = isSearch ? '#94a3b8' : '#60a5fa';
+        }
+
+        function searchPatients(query) {
+            clearTimeout(_patientSearchTimer);
+            const spinner = document.getElementById('patient-search-spinner');
+            if (query.trim().length > 0) {
+                spinner.style.display = 'block';
+            }
+            
+            _patientSearchTimer = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/patients/search?doctor_id=${_doctorId}&q=${encodeURIComponent(query)}`);
+                    const data = await res.json();
+                    renderPatientResults(data.patients || []);
+                } catch (e) {
+                    document.getElementById('patient-search-results').innerHTML =
+                        '<p style="color:#ef4444; font-size:0.85rem; padding:8px 0;">Could not reach server.</p>';
+                } finally {
+                    spinner.style.display = 'none';
+                }
+            }, 300); // Slightly longer debounce for better feel
+        }
+
+        function renderPatientResults(patients) {
+            const box = document.getElementById('patient-search-results');
+            if (!patients.length) {
+                box.innerHTML = '<p style="color:#94a3b8; font-size:0.85rem; padding:10px 0; text-align:center;">No patients found. Use the <b style=\'color:#6ee7b7\'>+ New Patient</b> tab to create one.</p>';
+                return;
+            }
+            box.innerHTML = patients.map(p => `
+                <div onclick="selectPatient(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.age || 0}, '${(p.gender || '').replace(/'/g, "\\'")}', '${(p.medical_history || '').replace(/'/g, "\\'")}')"
+                     style="display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:9px; cursor:pointer; transition:background .15s; border:1px solid transparent; margin-bottom:4px;"
+                     onmouseover="this.style.background='rgba(59,130,246,0.12)'; this.style.borderColor='rgba(59,130,246,0.3)'"
+                     onmouseout="this.style.background='transparent'; this.style.borderColor='transparent'">
+                    <div style="width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,#3b82f6,#6366f1); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:0.9rem; flex-shrink:0;">
+                        ${p.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style="text-align:left; flex:1; min-width:0;">
+                        <div style="font-weight:600; color:#f1f5f9; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</div>
+                        <div style="font-size:0.78rem; color:#94a3b8;">${p.age ? p.age + ' yrs' : '—'} ${p.gender ? '· ' + p.gender : ''}</div>
+                    </div>
+                    <span style="color:#60a5fa; font-size:0.8rem; font-weight:600; flex-shrink:0;">Select ›</span>
+                </div>
+            `).join('');
+        }
+
+        function selectPatient(id, name, age, gender, history) {
+            currentPatient = { id, name, age, gender, medical_history: history };
+            // Show badge
+            document.getElementById('selected-patient-label').textContent = name;
+            document.getElementById('selected-patient-meta').textContent =
+                (age ? age + ' yrs' : '') + (gender ? ' · ' + gender : '') +
+                (history ? ' · ' + history.substring(0, 40) + (history.length > 40 ? '…' : '') : '');
+            document.getElementById('patient-selected-bar').style.display = 'flex';
+            document.getElementById('patient-prompt-bar').style.display = 'none';
+            closePatientPanel();
+            
+            // Fix: Ensure the history modal is closed and reset when switching patients
+            // It's possible the user left the modal open in the background, or it cached old data.
+            closePatientHistory();
+            document.getElementById('history-timeline-container').innerHTML = 
+                '<div style="text-align:center; padding:40px 0; color:#64748b;"><p>Loading patient history...</p></div>';
+        }
+
+        async function createNewPatient() {
+            const name = document.getElementById('np-name').value.trim();
+            const age = parseInt(document.getElementById('np-age').value);
+            const gender = document.getElementById('np-gender').value;
+            const history = document.getElementById('np-history').value.trim();
+            const errEl = document.getElementById('new-patient-error');
+            errEl.style.display = 'none';
+
+            if (!name) { errEl.textContent = 'Patient name is required.'; errEl.style.display = 'block'; return; }
+            if (isNaN(age) || age < 0) { errEl.textContent = 'Please enter a valid age.'; errEl.style.display = 'block'; return; }
+
+            const btn = document.getElementById('np-submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Creating…';
+
+            try {
+                const res = await fetch('/patients/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ doctor_id: _doctorId, name, age, gender, medical_history: history })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    selectPatient(data.patient_id, data.name, data.age, data.gender, data.medical_history);
+                    // Reset form
+                    ['np-name', 'np-age', 'np-history'].forEach(id => document.getElementById(id).value = '');
+                    document.getElementById('np-gender').value = '';
+                } else {
+                    errEl.textContent = data.error || 'Failed to create patient.';
+                    errEl.style.display = 'block';
+                }
+            } catch (e) {
+                errEl.textContent = 'Network error. Is the server running?';
+                errEl.style.display = 'block';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Create Patient & Continue';
+        }
+
+        async function openPatientHistory() {
+            if (!currentPatient) return;
+            document.getElementById('history-modal-name').textContent = currentPatient.name + "'s History";
+            document.getElementById('history-modal-meta').textContent = 
+                (currentPatient.age ? currentPatient.age + ' yrs' : '') + 
+                (currentPatient.gender ? ' · ' + currentPatient.gender : '');
+            
+            document.getElementById('history-modal').style.display = 'flex';
+            const container = document.getElementById('history-timeline-container');
+            container.innerHTML = '<div style="text-align:center; padding:40px 0; color:#64748b;"><p>Loading patient history...</p></div>';
+
+            try {
+                const res = await fetch(`/patients/history?patient_id=${currentPatient.id}`);
+                const data = await res.json();
+                if (data.success) {
+                    renderPatientHistory(data.history || []);
+                } else {
+                    container.innerHTML = `<div style="text-align:center; padding:40px 0; color:#ef4444;"><p>Failed to load history: ${data.error}</p></div>`;
+                }
+            } catch (e) {
+                container.innerHTML = '<div style="text-align:center; padding:40px 0; color:#ef4444;"><p>Network error loading history.</p></div>';
+            }
+        }
+
+        function closePatientHistory() {
+            document.getElementById('history-modal').style.display = 'none';
+        }
+
+        function renderPatientHistory(history) {
+            const container = document.getElementById('history-timeline-container');
+            if (!history.length) {
+                container.innerHTML = '<div style="text-align:center; padding:40px 0; color:#64748b;"><p>No prior visits found for this patient.</p></div>';
+                return;
+            }
+
+            let html = '<div style="position:relative; padding-left:24px; border-left:2px solid #1e293b; margin-top:10px;">';
+            
+            history.forEach((h, i) => {
+                const dateObj = new Date(h.date);
+                const dateStr = dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+                const timeStr = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                
+                let severityHtml = '';
+                if (h.severity) {
+                    if (typeof h.severity === 'string') {
+                        try { h.severity = JSON.parse(h.severity); } catch (e) {}
+                    }
+                    if (h.severity && typeof h.severity === 'object') {
+                        const num = h.severity.numeric !== undefined ? h.severity.numeric : '';
+                        const text = h.severity.raw_text || '';
+                        if (num !== '' || text !== '') {
+                            severityHtml = `<div style="margin-top:8px; padding:8px 12px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:8px; display:inline-block;">
+                                <span style="color:#fbbf24; font-weight:700; font-size:1.1rem; margin-right:8px;">${num}</span>
+                                <span style="color:#fcd34d; font-size:0.85rem;">${text}</span>
+                            </div>`;
+                        }
+                    }
+                }
+
+                const rxBadge = h.has_prescription 
+                    ? `<span style="background:rgba(16,185,129,0.15); color:#34d399; font-size:0.75rem; padding:3px 8px; border-radius:12px; border:1px solid rgba(16,185,129,0.3); margin-left:10px; font-weight:600;">💊 Prescription Added</span>` 
+                    : '';
+
+                html += `
+                    <div style="position:relative; margin-bottom:${i === history.length - 1 ? '0' : '24px'};">
+                        <!-- Dot -->
+                        <div style="position:absolute; left:-30px; top:4px; width:10px; height:10px; border-radius:50%; background:#3b82f6; border:2px solid #0f172a; box-shadow:0 0 0 2px #1e293b;"></div>
+                        
+                        <!-- Content Box -->
+                        <div style="background:rgba(30,41,59,0.4); border:1px solid #1e293b; border-radius:12px; padding:16px; transition:transform 0.2s; cursor:pointer;" onmouseover="this.style.background='rgba(30,41,59,0.7)'; this.style.borderColor='rgba(59,130,246,0.3)';" onmouseout="this.style.background='rgba(30,41,59,0.4)'; this.style.borderColor='#1e293b';">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                                <div>
+                                    <div style="color:#f1f5f9; font-weight:600; font-size:1.05rem;">${h.disease} ${rxBadge}</div>
+                                    <div style="color:#64748b; font-size:0.8rem; margin-top:4px;">🕒 ${dateStr} at ${timeStr}</div>
+                                </div>
+                            </div>
+                            ${severityHtml}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
 
     </script>
 

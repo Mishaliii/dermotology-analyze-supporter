@@ -1,0 +1,20 @@
+--- POSTGRES FOREIGN KEYS ---
+images.disease_id -> diseases.id
+cases.doctor_id -> doctors.id
+cases.patient_id -> patients.id
+disease_treatments.disease_id -> diseases.id
+disease_treatments.medicine_id -> medicines.id
+prescriptions.case_id -> cases.id
+prescription_items.prescription_id -> prescriptions.id
+prescription_items.medicine_id -> medicines.id
+doctor_patients.doctor_id -> doctors.id
+doctor_patients.patient_id -> patients.id
+cases.predicted_disease_id -> diseases.id
+cases.confirmed_disease_id -> diseases.id
+disease_treatments.disease_id -> diseases.id
+disease_treatments.medicine_id -> medicines.id
+cases.doctor_id -> doctors.id
+cases.patient_id -> patients.id
+prescriptions.case_id -> cases.id
+prescription_items.prescription_id -> prescriptions.id
+prescription_items.medicine_id -> medicines.id

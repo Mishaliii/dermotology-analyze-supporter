@@ -5,6 +5,18 @@ from PIL import Image
 from transformers import AutoImageProcessor, AutoModel
 import os
 from collections import defaultdict
+import psycopg
+
+# DB Config
+DB_HOST = "localhost"
+DB_PORT = "5433"
+DB_USER = "postgres"
+DB_PASSWORD = "KL02@v13" 
+DB_NAME = "clinical_data"
+
+def get_db_connection():
+    conn_str = f"host={DB_HOST} port={DB_PORT} user={DB_USER} password={DB_PASSWORD} dbname={DB_NAME}"
+    return psycopg.connect(conn_str)
 
 # =============================
 # CONFIG
@@ -24,11 +36,9 @@ model = None
 image_labels = None
 image_paths = None
 cls_index = None
-mean_index = None
-disease_centroids = None
 
 def _init_models_and_data():
-    global processor, model, image_labels, image_paths, cls_index, mean_index, disease_centroids
+    global processor, model, image_labels, image_paths, cls_index
     if model is not None: return
     
     print("[INFO] Loading DINOv2 Model and FAISS indices...")
@@ -37,22 +47,10 @@ def _init_models_and_data():
     model.eval().to(DEVICE)
     torch.set_grad_enabled(False)
     
-    image_labels = np.load(
-        os.path.join(EMBEDDING_DIR, "image_labels.npy"),
-        allow_pickle=True
-    )
-    image_paths = np.load(
-        os.path.join(EMBEDDING_DIR, "image_paths.npy"),
-        allow_pickle=True
-    )
+    # PostgreSQL completely replaces the need to load .npy arrays into memory.
+    # We only load FAISS geometry into RAM.
     
     cls_index = faiss.read_index(os.path.join(EMBEDDING_DIR, "cls_index.faiss"))
-    mean_index = faiss.read_index(os.path.join(EMBEDDING_DIR, "mean_index.faiss"))
-    
-    disease_centroids = np.load(
-        os.path.join(EMBEDDING_DIR, "disease_mean_vectors.npy"),
-        allow_pickle=True
-    ).item()
     print("[INFO] Model and Data loaded successfully.")
 
 # =============================
@@ -85,21 +83,19 @@ def embed_image(image: Image.Image):
     # Extract Embeddings (Batch Size = 3)
     # CLS: [3, 768]
     cls_batch = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-    # Mean: [3, 768]
-    mean_batch = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
     
     # Average across the 3 views (TTA)
     # Using keepdims=True ensures shape is (1, 768) instead of (768,)
     # This is critical for FAISS compatibility.
     cls_emb = cls_batch.mean(axis=0, keepdims=True)
-    mean_emb = mean_batch.mean(axis=0, keepdims=True)
     
-    return cls_emb, mean_emb
+    return cls_emb
 
 def knn_vote(query_embedding: np.ndarray, index, knn_k=KNN_K, search_k=SEARCH_K):
     """
     Generic KNN voting with 'Top Match Bonus'
     Searches deeper (search_k) for evidence, votes on top (knn_k).
+    Resolves indices against PostgreSQL.
     """
     q = query_embedding.copy()
     faiss.normalize_L2(q)
@@ -111,13 +107,37 @@ def knn_vote(query_embedding: np.ndarray, index, knn_k=KNN_K, search_k=SEARCH_K)
     similar_cases = []
     champion_bonus = 0.0
 
+    # Batch Query the DB for all retrieved faiss_ids
+    # Convert np indices to Python ints to avoid psycopg parameter errors
+    faiss_ids_to_query = [int(idx) for idx in indices[0]]
+    id_to_metadata = {}
+    
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            # Query all hits in one go for speed
+            query = """
+                SELECT i.faiss_id, i.relative_path, d.name 
+                FROM images i
+                JOIN diseases d ON i.disease_id = d.id
+                WHERE i.faiss_id = ANY(%s)
+            """
+            cur.execute(query, (faiss_ids_to_query,))
+            for row in cur.fetchall():
+                faiss_id, r_path, d_name = row
+                id_to_metadata[faiss_id] = {"path": r_path, "disease": d_name}
+
     for i, (sim, idx) in enumerate(zip(scores[0], indices[0])):
-        disease = image_labels[idx]
+        idx = int(idx)
+        if idx not in id_to_metadata:
+            continue
+            
+        metadata = id_to_metadata[idx]
+        disease = metadata["disease"]
         score = float(sim)
         
         # Collect ALL retrieved neighbors as potential evidence/context
         similar_cases.append({
-            "image_path": image_paths[idx],
+            "image_path": metadata["path"],
             "disease": disease,
             "similarity": float(sim)
         })
@@ -144,21 +164,7 @@ def knn_vote(query_embedding: np.ndarray, index, knn_k=KNN_K, search_k=SEARCH_K)
     return ranked_diseases, similar_cases, champion_bonus
 
 
-def cosine_centroid_search(query_embedding: np.ndarray):
-    """
-    Compare query against disease centroids
-    """
-    q = query_embedding.flatten()
-    q = q / np.linalg.norm(q)  # Normalize query
-    
-    scores = {}
-    for disease, centroid in disease_centroids.items():
-        centroid = centroid / np.linalg.norm(centroid) # Normalize centroid
-        sim = np.dot(q, centroid)
-        scores[disease] = float(sim)
-        
-    ranked_diseases = sorted(scores.items(), key=lambda x: -x[1])
-    return ranked_diseases
+
 
 def get_dynamic_top_diseases(ranked_diseases, max_diseases=5, threshold_ratio=0.4, min_diseases=2, champion_bonus=0.0):
     """
@@ -191,73 +197,32 @@ def get_dynamic_top_diseases(ranked_diseases, max_diseases=5, threshold_ratio=0.
 def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     _init_models_and_data()
     image = Image.open(image_path).convert("RGB")
-    cls_emb, mean_emb = embed_image(image)
+    cls_emb = embed_image(image)
 
     # ---------------------------------------------------------
-    # Method 1: CLS + Rank-Weighted kNN
+    # Final AI Match: CLS + Rank-Weighted kNN
     # ---------------------------------------------------------
     m1_ranks, m1_cases, m1_bonus = knn_vote(cls_emb, cls_index, knn_k=knn_k, search_k=search_k)
-    
-    # ---------------------------------------------------------
-    # Method 2: Mean + Cosine Similarity (Centroids)
-    # ---------------------------------------------------------
-    # 1. Predict Disease using Centroids
-    m2_ranks_full = cosine_centroid_search(mean_emb)
-    
-    # 2. Find Evidence (Similar Cases for the predicted disease)
-    # We perform a search specifically for this method's evidence, 
-    # filtering for the top predicted disease.
-    m2_top_disease = m2_ranks_full[0][0]
-    
-    # Normalized query for search
-    q_mean = mean_emb.copy()
-    faiss.normalize_L2(q_mean)
-    
-    # DEEP SWEEP: Centroids are abstract, so we need to search deep to guarantee
-    # finding actual dataset cases that match the centroid prediction. (search_k=1000)
-    deep_k = min(1000, mean_index.ntotal) if hasattr(mean_index, 'ntotal') else 1000
-    D, I = mean_index.search(q_mean, deep_k)
-    
-    m2_cases = []
-    # Look through the search results to find instances of the top predicted disease
-    for dist, idx in zip(D[0], I[0]):
-        disease = image_labels[idx]
-        if disease == m2_top_disease:
-            m2_cases.append({
-                "image_path": image_paths[idx],
-                "disease": disease,
-                "similarity": float(dist)
-            })
-            if len(m2_cases) >= 30: # Limit to top 30 evidence for UI Load More
-                break
-
-    # ---------------------------------------------------------
-    # Method 3: Mean + Rank-Weighted kNN (Texture)
-    # ---------------------------------------------------------
-    m3_ranks, m3_cases, m3_bonus = knn_vote(mean_emb, mean_index, knn_k=knn_k, search_k=search_k)
             
     # --- DYNAMIC DISEASE SELECTION ---
     dynamic_m1_ranks = get_dynamic_top_diseases(m1_ranks, champion_bonus=m1_bonus)
-    dynamic_m2_ranks = get_dynamic_top_diseases(m2_ranks_full) # No bonus for simple cosine
-    dynamic_m3_ranks = get_dynamic_top_diseases(m3_ranks, champion_bonus=m3_bonus)
 
     # --- SEVERITY SCORING ---
-    # Calculate score for ALL dynamically retrieved top diseases across all methods
-    # This ensures if the user clicks ANY disease chip, the calculator won't load empty metrics
+    # Only score the TOP-1 disease upfront to keep initial load fast.
+    # Other diseases are scored on-demand when the user clicks a disease chip
+    # via the /score_disease API endpoint.
     severity_assessments = []
     
     try:
         from scripts.scoring import get_visual_score
         
-        # Gather all unique diseases
-        unique_diseases = set([d[0] for d in dynamic_m1_ranks] + 
-                              [d[0] for d in dynamic_m2_ranks] + 
-                              [d[0] for d in dynamic_m3_ranks])
+        # Use primary disease as the primary scoring target
+        top_disease = dynamic_m1_ranks[0][0] if dynamic_m1_ranks else None
         
-        for disease in unique_diseases:
-            metrics = get_visual_score(image_path, disease)
+        if top_disease:
+            metrics = get_visual_score(image_path, top_disease)
             severity_assessments.append({
-                "disease": disease,
+                "disease": top_disease,
                 "metrics": metrics
             })
             
@@ -269,15 +234,9 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     return {
         "cls_knn": {
             "top_diseases": dynamic_m1_ranks,
-            "similar_cases": m1_cases[:30] # Send 30 for UI "Load More" logic
+            "similar_cases": m1_cases[:30]
         },
-        "mean_cosine": {
-            "top_diseases": dynamic_m2_ranks,
-            "similar_cases": m2_cases
-        },
-        "mean_knn": {
-            "top_diseases": dynamic_m3_ranks,
-            "similar_cases": m3_cases[:30]
-        },
-        "severity_assessments": severity_assessments
+        "severity_assessments": severity_assessments,
+        # Pass back the uploaded image path so the on-demand scorer can use it
+        "analyzed_image_path": image_path
     }
