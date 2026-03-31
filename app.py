@@ -148,6 +148,11 @@ async def home():
         return FileResponse(index_path)
     return "<h2>Frontend not found. Create static/index.html</h2>"
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    from fastapi.responses import Response
+    return Response(status_code=204)  # No Content — silences browser 404 logs
+
 
 # --------------------------------------------------
 # AUTH ENDPOINTS
@@ -235,9 +240,7 @@ def cleanup_old_files(directory, age_minutes=60):
 
 @app.post("/analyze")
 async def analyze(
-    file: UploadFile = File(...),
-    knn_k: int = Form(15), 
-    search_k: int = Form(50)
+    file: UploadFile = File(...)
 ):
 
     # ---------- Auto Cleanup (Lazy) ----------
@@ -252,10 +255,10 @@ async def analyze(
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        print(f"[INFO] Analyzing image: {temp_path} | k={knn_k}, search={search_k}")
+        print(f"[INFO] Analyzing image: {temp_path}")
 
         # ---------- RUN AI PIPELINE ----------
-        results = analyze_skin_image(temp_path, knn_k=knn_k, search_k=search_k)
+        results = analyze_skin_image(temp_path)
 
         # ---------- Normalize Paths for Browser ----------
         for method_name, method_result in results.items():
@@ -293,13 +296,6 @@ async def analyze(
         # We DO NOT delete temp immediately,
         # otherwise preview disappears.
         pass
-
-
-# --------------------------------------------------
-# OPTIONAL CLEANUP ENDPOINT
-# --------------------------------------------------
-
-    return {"removed_files": []}
 
 
 # --------------------------------------------------

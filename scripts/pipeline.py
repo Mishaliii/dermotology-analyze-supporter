@@ -1,11 +1,12 @@
-import torch
 import numpy as np
-import faiss
 from PIL import Image
-from transformers import AutoImageProcessor, AutoModel
 import os
 from collections import defaultdict
 import psycopg
+
+# Lazy modules (loaded on demand)
+torch = None
+faiss = None
 
 # DB Config
 DB_HOST = "localhost"
@@ -29,19 +30,30 @@ KNN_K = 15          # how many neighbors to retrieve for voting
 SEARCH_K = 50       # how many to retrieve for evidence context
 
 # =============================
-# LOAD MODEL & DATA (LAZY)
+# LAZY MODEL LOADING
 # =============================
 processor = None
 model = None
 image_labels = None
 image_paths = None
 cls_index = None
+models_loaded = False
 
-def _init_models_and_data():
-    global processor, model, image_labels, image_paths, cls_index
-    if model is not None: return
+def load_models():
+    global processor, model, image_labels, image_paths, cls_index, models_loaded, torch, faiss
+    if models_loaded:
+        return
     
     print("[INFO] Loading DINOv2 Model and FAISS indices...")
+    # Import heavy libraries only when needed
+    import torch as _torch
+    import faiss as _faiss
+    from transformers import AutoImageProcessor, AutoModel
+
+    # Save into global variables so they can be used across functions
+    torch = _torch
+    faiss = _faiss
+
     processor = AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=False)
     model = AutoModel.from_pretrained(MODEL_NAME)
     model.eval().to(DEVICE)
@@ -51,6 +63,7 @@ def _init_models_and_data():
     # We only load FAISS geometry into RAM.
     
     cls_index = faiss.read_index(os.path.join(EMBEDDING_DIR, "cls_index.faiss"))
+    models_loaded = True
     print("[INFO] Model and Data loaded successfully.")
 
 # =============================
@@ -73,7 +86,7 @@ def embed_image(image: Image.Image):
     img_zoom = img_base.crop((22, 22, 202, 202)).resize((224, 224))
     
     # Process batch of 3
-    _init_models_and_data()
+    load_models()
     inputs = processor(images=[img_base, img_flip, img_zoom], return_tensors="pt", do_resize=False, do_center_crop=False)
     inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
     
@@ -195,7 +208,7 @@ def get_dynamic_top_diseases(ranked_diseases, max_diseases=5, threshold_ratio=0.
 
 
 def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
-    _init_models_and_data()
+    load_models()
     image = Image.open(image_path).convert("RGB")
     cls_emb = embed_image(image)
 
@@ -208,28 +221,10 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     dynamic_m1_ranks = get_dynamic_top_diseases(m1_ranks, champion_bonus=m1_bonus)
 
     # --- SEVERITY SCORING ---
-    # Only score the TOP-1 disease upfront to keep initial load fast.
-    # Other diseases are scored on-demand when the user clicks a disease chip
-    # via the /score_disease API endpoint.
+    # Scoring is deferred entirely to on-demand via /score_disease endpoint.
+    # This makes the initial /analyze response near-instant (no FastSAM on CPU).
+    # The frontend will call /score_disease when the user clicks a disease chip.
     severity_assessments = []
-    
-    try:
-        from scripts.scoring import get_visual_score
-        
-        # Use primary disease as the primary scoring target
-        top_disease = dynamic_m1_ranks[0][0] if dynamic_m1_ranks else None
-        
-        if top_disease:
-            metrics = get_visual_score(image_path, top_disease)
-            severity_assessments.append({
-                "disease": top_disease,
-                "metrics": metrics
-            })
-            
-    except ImportError as e:
-        print(f"WARNING: scoring import failed: {e}")
-    except Exception as e:
-        print(f"SCORING ERROR: {e}")
 
     return {
         "cls_knn": {

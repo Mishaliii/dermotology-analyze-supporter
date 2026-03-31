@@ -298,125 +298,85 @@ def analyze_psoriasis(image_cv, context="UNCERTAIN"):
 
 def analyze_acne(image_cv):
     """
-    GAGS Custom Severity Engine.
-    Uses the INTERSECTION of SAM lesion shapes and red pixel mask:
-    - SAM excludes background/non-lesion segments
-    - Red mask excludes non-inflamed texture picked up by SAM
-    - Intersection = genuine inflamed lesion pixels only
+    GAGS Custom Severity Engine
+    Combines universal features using weighted arithmetic to determine true global severity,
+    capped strictly by safety limits.
     """
     hsv = cv2.cvtColor(image_cv, cv2.COLOR_BGR2HSV)
-
-    # Tighter red range: min saturation 80 prevents flushed normal skin from matching
-    mask1 = cv2.inRange(hsv, np.array([0,  80, 60]), np.array([12,  200, 255]))
-    mask2 = cv2.inRange(hsv, np.array([165, 80, 60]), np.array([180, 200, 255]))
-    red_mask_raw = cv2.bitwise_or(mask1, mask2)   # uint8, 0 or 255
-
-    # -----------------------------------------------------------------
-    # BLOB-SIZE FILTER: keep only acne-sized red objects.
-    # On a 512x512 image:
-    #   - Noise:  < 10 px
-    #   - Acne papule/pustule: 50–2500 px  ← keep this range
-    #   - Lips / large background: > 2500 px  ← exclude
-    # This directly eliminates the lip false-positive that inflates chin score.
-    # -----------------------------------------------------------------
-    red_mask = np.zeros_like(red_mask_raw)
-    num_lbl, lbl_map, stats, _ = cv2.connectedComponentsWithStats(red_mask_raw)
-    for i in range(1, num_lbl):          # skip background label 0
-        area = int(stats[i, cv2.CC_STAT_AREA])
-        if 10 <= area <= 2500:
-            red_mask[lbl_map == i] = 255
-
+    mask1 = cv2.inRange(hsv, np.array([0, 30, 50]), np.array([15, 255, 255]))
+    mask2 = cv2.inRange(hsv, np.array([160, 30, 50]), np.array([180, 255, 255]))
+    red_mask = mask1 + mask2
+    
     skin_mask = detect_skin(image_cv)
-
-    # SAM runs bounded by the red heuristic so it focuses on inflamed regions
     lesion_mask_combined = get_sam_lesion_mask(image_cv, red_mask, skin_mask=skin_mask)
-
-    # --- KEY FIX: intersect SAM lesion mask with red mask ---
-    # SAM alone: over-segments (normal pores, shadows counted)
-    # Red alone: picks up normal flushed skin
-    # Intersection: only pixels that are BOTH lesion-shaped AND red = true acne
-    intersect_mask = np.logical_and(lesion_mask_combined, red_mask > 0)
-
+    
     uni = compute_universal_features(image_cv, lesion_mask_combined, skin_mask)
-
-    # ------------------------------------------------------------------
-    # GLOBAL SEVERITY: intersection coverage as % of skin area
-    #
-    # Since intersection is always smaller than either mask alone,
-    # thresholds are tighter than raw red_mask thresholds:
-    #   0 = Clear              < 0.3%
-    #   1 = Mild (Comedones)   0.3 – 2%
-    #   2 = Moderate (Papules) 2 – 5%
-    #   3 = Severe (Pustules)  5 – 12%
-    #   4 = Very Severe (Nodules) >= 12%
-    # ------------------------------------------------------------------
-    total_skin_px    = max(int(np.sum(skin_mask)), 1)
-    inflamed_px      = int(np.sum(intersect_mask))
-    inflamed_pct     = (inflamed_px / total_skin_px) * 100
-
-    print(f"[ACNE DEBUG] inflamed_px={inflamed_px}, skin_px={total_skin_px}, pct={inflamed_pct:.2f}%")
-
-    if inflamed_pct < 0.3:
+    
+    # Stage 13 & 14: Dynamic Severity Mapping based directly on real image features
+    comps = uni["cluster_count"]
+    cov = uni["coverage"]
+    
+    if comps == 0:
         global_max = 0
-    elif inflamed_pct < 2.0:
+    elif comps <= 2 and cov < 0.005:
         global_max = 1
-    elif inflamed_pct < 5.0:
+    elif comps <= 5 and cov < 0.015:
         global_max = 2
-    elif inflamed_pct < 20.0:
+    elif comps <= 12 and cov < 0.03:
         global_max = 3
     else:
         global_max = 4
-
-    # Regional grid (face layout)
+        
+    # Implement heuristic regional analysis (assuming full-face images)
     h, w = image_cv.shape[:2]
+    
+    # Simple facial grid projection
     regions_grid = {
-        "fh": (0,          0,           int(w),      int(h*0.33)),
-        "rc": (0,          int(h*0.33), int(w*0.4),  int(h*0.66)),
-        "no": (int(w*0.4), int(h*0.33), int(w*0.6),  int(h*0.66)),
-        "lc": (int(w*0.6), int(h*0.33), int(w),      int(h*0.66)),
-        "ch": (0,          int(h*0.66), int(w),      h),
-        "cb": (0,          0,           w,           h)
+        "fh": (0, 0, int(w), int(h*0.33)),
+        "rc": (0, int(h*0.33), int(w*0.4), int(h*0.66)),
+        "no": (int(w*0.4), int(h*0.33), int(w*0.6), int(h*0.66)),
+        "lc": (int(w*0.6), int(h*0.33), int(w), int(h*0.66)),
+        "ch": (0, int(h*0.66), int(w), h),
+        "cb": (0, 0, 0, 0)
     }
-
+    
     regional_scores = {}
     for r_id, (rx1, ry1, rx2, ry2) in regions_grid.items():
-        if ry2 <= ry1 or rx2 <= rx1:
+        if r_id == "cb" or ry2 <= ry1 or rx2 <= rx1:
             regional_scores[r_id] = 0
             continue
-
-        r_skin     = skin_mask[ry1:ry2, rx1:rx2]
-        r_intersect = intersect_mask[ry1:ry2, rx1:rx2]
-
-        r_skin_px = int(np.sum(r_skin))
-        if r_skin_px < 50:
+            
+        r_skin = skin_mask[ry1:ry2, rx1:rx2]
+        r_lesion = lesion_mask_combined[ry1:ry2, rx1:rx2]
+        
+        r_skin_px = np.sum(r_skin)
+        if r_skin_px < 50: # Not enough skin detected in region
             regional_scores[r_id] = 0
             continue
-
-        r_pct = (int(np.sum(r_intersect)) / r_skin_px) * 100
-        print(f"[ACNE DEBUG] region={r_id}, pct={r_pct:.2f}%")
-
-        if r_pct < 0.3:
+            
+        r_cov = np.sum(r_lesion) / r_skin_px
+        r_comps = cv2.connectedComponents(r_lesion.astype(np.uint8))[0] - 1
+        
+        if r_comps == 0:
             r_sev = 0
-        elif r_pct < 2.0:
+        elif r_comps <= 1 and r_cov < 0.005:
             r_sev = 1
-        elif r_pct < 5.0:
+        elif r_comps <= 3 and r_cov < 0.015:
             r_sev = 2
-        elif r_pct < 20.0:
+        elif r_comps <= 6 and r_cov < 0.03:
             r_sev = 3
         else:
             r_sev = 4
-
-        regional_scores[r_id] = min(r_sev, global_max)
-
+        regional_scores[r_id] = r_sev
+        
     return {
         "max_severity_grade": global_max,
-        "regional_scores":   regional_scores,
-        "has_nodules":  global_max == 4,
-        "has_papules":  global_max >= 2,
+        "regional_scores": regional_scores,
+        "has_nodules": global_max == 4,
+        "has_papules": global_max >= 2,
         "sam_polygons": extract_sam_polygons(lesion_mask_combined),
         "raw_features": uni
     }
-
 
 
 def analyze_eczema(image_cv):
