@@ -7,7 +7,9 @@
 
     <title>Clinical Dermatology Decision Support</title>
 
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/ui-overrides.css">
 
     <style>
         :root {
@@ -132,6 +134,11 @@
                 overflow: auto;
             }
 
+            .preview-frame {
+                width: 100%;
+                height: 220px;
+            }
+
             .hero {
                 padding: 48px 16px 60px;
             }
@@ -206,10 +213,25 @@
             font-size: 0.95rem;
         }
 
-        .preview-wrapper img {
-            width: min(100%, 250px);
+        .preview-frame {
+            position: relative;
+            width: min(100%, 360px);
+            max-width: 100%;
+            aspect-ratio: 4 / 3;
+            height: 260px;
+            overflow: hidden;
             border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, .25);
+            background: rgba(15, 23, 42, 0.45);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .preview-frame img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: contain;
+            border-radius: inherit;
+            box-shadow: none;
         }
 
         /* ================= RESULTS ================= */
@@ -814,7 +836,24 @@
     </style>
 </head>
 
-<body>
+<body class="dashboard-app bg-slate-950 text-slate-100">
+
+    <div class="dashboard-shell">
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-badge">Dx</div>
+            </div>
+
+            <nav class="dashboard-nav">
+                <button type="button" class="dashboard-nav-item nav-dashboard" data-icon="◌">Dashboard</button>
+                <button type="button" class="dashboard-nav-item nav-patients" data-icon="◎">Patients</button>
+                <button type="button" class="dashboard-nav-item nav-upload" data-icon="↥">Upload</button>
+                <button type="button" class="dashboard-nav-item nav-reports" data-icon="▣">Reports</button>
+            </nav>
+        </aside>
+
+        <main class="dashboard-main">
+            <div class="dashboard-main-scroll">
 
     <!-- ================= HERO ================= -->
 
@@ -832,7 +871,7 @@
             style="display:flex; align-items:center; justify-content:center; gap:14px; margin-top:12px; margin-bottom:4px;">
             <span style="font-size:0.9rem; color:rgba(255,255,255,0.75);">👨‍⚕️ Logged in as <strong
                     id="session-doctor-name" style="color:#38bdf8;"></strong></span>
-            <button onclick="logout()"
+            <button onclick="logout()" class="btn-ghost"
                 style="background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.8); border:1px solid rgba(255,255,255,0.2); padding:5px 14px; border-radius:20px; font-size:0.8rem; cursor:pointer; transition:all 0.2s;"
                 onmouseover="this.style.background='rgba(239,68,68,0.25)'; this.style.color='#fca5a5';"
                 onmouseout="this.style.color='rgba(255,255,255,0.8)'; this.style.background='rgba(255,255,255,0.1)';">Logout</button>
@@ -866,11 +905,11 @@
                         </div>
                         
                         <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-                            <button onclick="openPatientHistory()"
+                            <button onclick="openPatientHistory()" class="btn-primary"
                                 style="background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); color:#60a5fa; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:0.8rem; font-weight:600; transition:all .2s; box-shadow:0 2px 8px rgba(59,130,246,0.15);"
                                 onmouseover="this.style.background='rgba(59,130,246,0.25)'; this.style.transform='translateY(-1px)';"
                                 onmouseout="this.style.background='rgba(59,130,246,0.15)'; this.style.transform='translateY(0)';">View History</button>
-                            <button onclick="openPatientPanel()"
+                            <button onclick="openPatientPanel()" class="btn-secondary"
                                 style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#e2e8f0; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:0.8rem; font-weight:500; transition:all .2s;"
                                 onmouseover="this.style.background='rgba(255,255,255,0.15)'; this.style.color='#fff';"
                                 onmouseout="this.style.background='rgba(255,255,255,0.08)'; this.style.color='#e2e8f0';">Search / Change</button>
@@ -981,7 +1020,7 @@
                                     onfocus="this.style.borderColor='rgba(59,130,246,0.5)'"
                                     onblur="this.style.borderColor='rgba(255,255,255,0.1)'"></textarea>
                             </div>
-                            <button onclick="createNewPatient()" id="np-submit-btn"
+                            <button onclick="createNewPatient()" id="np-submit-btn" class="btn-primary"
                                 style="width:100%; padding:11px; background:linear-gradient(135deg,#10b981,#059669); border:none; border-radius:9px; color:#fff; font-weight:700; font-size:0.95rem; font-family:inherit; cursor:pointer; box-shadow:0 4px 14px rgba(16,185,129,.35);">Create
                                 Patient &amp; Continue</button>
                         </div>
@@ -993,7 +1032,7 @@
 
         <!-- Continue button below patient & history -->
         <div id="patient-actions" style="display:none; width:100%; justify-content:center; margin-top: 25px;">
-            <button id="continue-main-btn" onclick="goToUploadStep()"
+            <button id="continue-main-btn" onclick="goToUploadStep()" class="btn-primary"
                 style="background:linear-gradient(135deg, #3b82f6, #6366f1); color:#fff; padding:14px 40px; border:none; border-radius:30px; font-weight:700; font-size: 1.1rem; cursor:pointer; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow:0 10px 25px rgba(59, 130, 246, 0.4); display:flex; align-items:center; gap: 10px; border: 1px solid rgba(255, 255, 255, 0.1);"
                 onmouseover="this.style.transform='translateY(-3px) scale(1.02)'; this.style.boxShadow='0 15px 35px rgba(59, 130, 246, 0.6)';" 
                 onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 10px 25px rgba(59, 130, 246, 0.4)';">
@@ -1001,10 +1040,12 @@
             </button>
         </div>
 
+    </div> <!-- end hero -->
+
     <!-- ===== UPLOAD & RESULTS STEP ===== -->
     <div id="upload-step" style="display:none;">
         <div style="margin:20px 0;">
-            <button onclick="backToPatientStep()" style="background:rgba(255,255,255,0.1); border:none; color:#cbd5e1; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:0.85rem; transition:background .2s;">← Change Patient</button>
+            <button onclick="backToPatientStep()" class="btn-secondary" style="background:rgba(255,255,255,0.1); border:none; color:#cbd5e1; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:0.85rem; transition:background .2s;">← Change Patient</button>
         </div>
         <div id="upload-patient-info" style="display:none; color:#f1f5f9; font-size:0.95rem; margin-bottom:14px;">
             <strong>Patient:</strong> <span id="upload-patient-name"></span>
@@ -1012,11 +1053,12 @@
         </div>
 
         <!-- two column layout: left = upload, right = results -->
-        <div id="upload-workspace">
+            <div id="upload-workspace">
             <div id="upload-panel">
                 <div class="upload-box" id="drop-zone">
                     <h3 style="margin-top:0;">Upload Clinical Image</h3>
-                    <button class="primary-btn" id="select-img-btn"
+                    <p class="upload-box-copy">Select a clear clinical photo to start analysis and scoring.</p>
+                    <button class="primary-btn btn-primary" id="select-img-btn"
                         onclick="document.getElementById('file-input').click(); event.stopPropagation();">Select Image</button>
                     <input type="file" id="file-input" hidden accept="image/*">
                 </div>
@@ -1024,7 +1066,7 @@
 
                 <div class="preview-wrapper" id="preview-wrapper">
                     <h4>Uploaded Case Preview</h4>
-                    <div style="position: relative; display: inline-block;">
+                    <div class="preview-frame">
                         <img id="preview-img">
                         <svg id="sam-overlay" viewBox="0 0 512 512" preserveAspectRatio="none"
                             style="display:none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;">
@@ -1038,46 +1080,62 @@
                     </div>
                 </div>
             </div>
-            <div id="results-scroll-area">
-                <!-- ================= RESULTS (step2) ================= -->
-                <div class="container">
+            <div id="results-scroll-area" class="results-panel">
+                <div id="empty-state" class="results-state-card">
+                    <div class="results-state-badge">AI Analysis</div>
+                    <div class="results-state-title">Upload a clinical image to begin analysis.</div>
+                    <div class="results-state-copy">Reference matches, diagnosis guidance, and the relevant severity calculator will appear here after upload.</div>
+                </div>
+
+                <div id="loading-state" class="results-state-card results-state-card-loading" style="display:none;">
                     <div class="loader" id="loader"></div>
+                    <div class="results-state-title">Analyzing uploaded image</div>
+                    <div class="results-state-copy">Reviewing visual features and preparing severity scoring.</div>
+                </div>
 
-                    <div class="results-grid" id="results-container" style="display:none;">
+                <div id="results-section" style="display:none;">
+                    <!-- ================= RESULTS (step2) ================= -->
+                    <div class="container">
+                        <div class="results-grid" id="results-container" style="display:none;">
 
-                        <div class="method-card">
-                            <div class="method-title">Similar Cases</div>
-                            <div class="method-subtitle">Visually and clinically similar reference cases</div>
-                            <div id="m1-diseases"></div>
+                            <div class="method-card">
+                                <div class="method-title">Similar Cases</div>
+                                <div class="method-subtitle">Visually and clinically similar reference cases</div>
+                                <div id="m1-diseases"></div>
 
-                            <div class="section-title">Supporting Evidence</div>
-                            <div id="m1-evidence"></div>
+                                <div class="section-title">Supporting Evidence</div>
+                                <div id="m1-evidence"></div>
+                            </div>
+
                         </div>
-
                     </div>
                 </div>
             </div>
         </div> <!-- end two-column flex -->
     </div> <!-- end upload-step -->
 
+            </div>
+        </main>
+    </div>
+
 
 
     <!-- SCORING MODAL -->
     <div id="scoring-modal"
         style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000; justify-content:center; align-items:center;">
-        <div id="scoring-dialog"
-            style="background:white; padding:30px; border-radius:16px; width:90%; max-width:500px; max-height:90vh; overflow-y:auto; overflow-x:hidden; position:relative;">
+        <div id="scoring-dialog" class="bg-slate-900 text-white rounded-xl p-6 max-w-xl w-full"
+            style="padding:30px; width:90%; max-height:90vh; overflow-y:auto; overflow-x:hidden; position:relative;">
             <button id="scoring-close-btn" onclick="document.getElementById('scoring-modal').style.display='none'"
                 style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
             <div id="scoring-content"></div>
             <div id="scoring-footer" style="margin-top:20px; padding-top:20px; border-top:1px solid #eee; text-align:center;">
                 <div id="final-score-display" style="font-size:1.2rem; font-weight:bold; color:#0f172a;"></div>
                 <div id="scoring-actions" style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
-                    <button id="scoring-save-btn" class="primary-btn"
+                    <button id="scoring-save-btn" class="primary-btn btn-secondary"
                         style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; padding:10px 20px; font-weight:600; font-size:1rem; transition:all 0.2s;"
                         onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'"
                         onclick="document.getElementById('scoring-modal').style.display='none'">Save & Close</button>
-                    <button id="scoring-generate-btn" class="primary-btn"
+                    <button id="scoring-generate-btn" class="primary-btn btn-primary"
                         style="background:linear-gradient(135deg, #0ea5e9, #3b82f6); color:white; border:none; padding:10px 24px; font-weight:600; font-size:1rem; box-shadow:0 4px 6px -1px rgba(14, 165, 233, 0.4); transition:all 0.2s;"
                         onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 8px -1px rgba(14, 165, 233, 0.5)'"
                         onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px -1px rgba(14, 165, 233, 0.4)'"
@@ -1096,7 +1154,7 @@
                     <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-bottom:3px;">Clinical Records</div>
                     <h3 id="history-modal-title" style="margin:0; color:#f1f5f9; font-size:1.2rem; font-weight:800;">Patient History</h3>
                 </div>
-                <button onclick="closeHistoryModal()"
+                <button onclick="closeHistoryModal()" class="modal-icon-btn"
                     style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:#cbd5e1; width:34px; height:34px; border-radius:50%; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.2s;"
                     onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">&times;</button>
             </div>
@@ -1104,13 +1162,13 @@
             <div id="history-modal-content" style="flex:1; min-height:0; overflow-y:auto; color:#cbd5e1; font-size:0.92rem; padding:20px 24px;"></div>
             <!-- Pagination footer -->
             <div id="history-pagination" style="flex-shrink:0; display:flex; justify-content:space-between; align-items:center; padding:14px 24px; border-top:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2); display:none;">
-                <button id="hist-prev-btn" onclick="historyPrevPage()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; padding:7px 16px; border-radius:8px; cursor:pointer; font-size:0.82rem; font-weight:600; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">← Previous</button>
+                <button id="hist-prev-btn" onclick="historyPrevPage()" class="btn-secondary" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; padding:7px 16px; border-radius:8px; cursor:pointer; font-size:0.82rem; font-weight:600; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">← Previous</button>
                 <span id="hist-page-label" style="color:#94a3b8; font-size:0.82rem; font-weight:600;"></span>
-                <button id="hist-next-btn" onclick="historyNextPage()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; padding:7px 16px; border-radius:8px; cursor:pointer; font-size:0.82rem; font-weight:600; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">Next →</button>
+                <button id="hist-next-btn" onclick="historyNextPage()" class="btn-secondary" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; padding:7px 16px; border-radius:8px; cursor:pointer; font-size:0.82rem; font-weight:600; transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">Next →</button>
             </div>
             <!-- Simple close footer -->
             <div style="flex-shrink:0; text-align:right; padding:12px 24px; border-top:1px solid rgba(255,255,255,0.07);">
-                <button onclick="closeHistoryModal()" style="background:#1e293b; color:#cbd5e1; border:1px solid rgba(148,208,255,0.2); padding:9px 20px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem; transition:all 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'">Close</button>
+                <button onclick="closeHistoryModal()" class="btn-secondary" style="background:#1e293b; color:#cbd5e1; border:1px solid rgba(148,208,255,0.2); padding:9px 20px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem; transition:all 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'">Close</button>
             </div>
         </div>
     </div>
@@ -1125,7 +1183,7 @@
                     <div style="color:#38bdf8; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:4px;">Clinical Record</div>
                     <div style="color:#f1f5f9; font-size:1.15rem; font-weight:800;">Prescription Details</div>
                 </div>
-                <button onclick="document.getElementById('view-rx-modal').style.display='none'" style="background:rgba(255,255,255,0.1); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:1.4rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">&times;</button>
+                <button onclick="document.getElementById('view-rx-modal').style.display='none'" class="modal-icon-btn" style="background:rgba(255,255,255,0.1); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:1.4rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">&times;</button>
             </div>
 
             <!-- Meta info strip -->
@@ -1174,7 +1232,7 @@
 
             <!-- Footer close -->
             <div style="padding:14px 20px; border-top:1px solid #e2e8f0; text-align:right; background:#f8fafc;">
-                <button onclick="document.getElementById('view-rx-modal').style.display='none'" style="background:#0f172a; color:#fff; border:none; padding:10px 24px; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem; transition:background .2s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='#0f172a'">Close</button>
+                <button onclick="document.getElementById('view-rx-modal').style.display='none'" class="btn-secondary" style="background:#0f172a; color:#fff; border:none; padding:10px 24px; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem; transition:background .2s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='#0f172a'">Close</button>
             </div>
         </div>
     </div>
@@ -1183,7 +1241,7 @@
         <div id="add-med-modal"
             style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2100; justify-content:center; align-items:center; backdrop-filter:blur(5px);">
             <div style="background:#ffffff; color:#334155; padding:25px; border-radius:16px; width:95%; max-width:600px; position:relative; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0;">
-                <button onclick="closeAddMedicationModal()"
+                <button onclick="closeAddMedicationModal()" class="modal-icon-btn"
                     style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; color:#64748b;">&times;</button>
                 
                 <h3 style="margin-top:0; color:#0ea5e9; font-size:1.3rem; border-bottom:1px solid #e2e8f0; padding-bottom:10px; margin-bottom:20px;">Add Medication</h3>
@@ -1240,7 +1298,7 @@
                                 <div style="display:flex; gap:10px;">
                                     <input type="text" id="new-med-dose" placeholder="e.g. 1 pill"
                                         style="flex:1; box-sizing:border-box; padding:10px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff; color:#334155;">
-                                    <button class="primary-btn"
+                                    <button class="primary-btn btn-primary"
                                         style="background:linear-gradient(135deg, #0ea5e9, #3b82f6); padding:10px 20px; font-weight:600; border:none; border-radius:6px; color:white; cursor:pointer;"
                                         onclick="addManualMedicine(); closeAddMedicationModal()">Save & Add</button>
                                 </div>
@@ -1249,7 +1307,7 @@
                     </div>
                 </div>
                 <div style="margin-top:20px; text-align:right;">
-                    <button onclick="closeAddMedicationModal()"
+                    <button onclick="closeAddMedicationModal()" class="btn-secondary"
                         style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer; transition:background .2s;"
                         onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">Close</button>
                 </div>
@@ -1261,8 +1319,8 @@
         <div style="background:white; color:#334155; padding:24px; border-radius:16px; width:min(94vw, 860px); margin:0 auto; position:relative; border:1px solid #e2e8f0; box-shadow:0 28px 60px rgba(15,23,42,0.28); box-sizing:border-box; overflow-x:hidden;"
             id="prescription-print-area">
             <button onclick="document.getElementById('prescription-modal').style.display='none'; closeAddMedicationModal();"
-                style="position:absolute; top:14px; right:14px; z-index:20; display:flex; align-items:center; justify-content:center; background:#f8fafc; color:#475569; border:1px solid #cbd5e1; width:40px; height:40px; border-radius:50%; font-size:1.25rem; line-height:1; cursor:pointer;"
-                class="no-print">&times;</button>
+                class="modal-icon-btn no-print"
+                style="position:absolute; top:14px; right:14px; z-index:20; display:flex; align-items:center; justify-content:center; background:#f8fafc; color:#475569; border:1px solid #cbd5e1; width:40px; height:40px; border-radius:50%; font-size:1.25rem; line-height:1; cursor:pointer;">&times;</button>
 
             <!-- PROFESSIONAL HEADER -->
             <div
@@ -1323,7 +1381,7 @@
                 <div style="color:#475569; font-size:0.9rem; line-height:1.5;">
                     Add a medicine only when you need to extend the suggested treatment list.
                 </div>
-                <button class="primary-btn"
+                <button class="primary-btn btn-primary"
                     style="margin:0; background:linear-gradient(135deg,#0ea5e9,#3b82f6); color:#fff; padding:10px 18px; font-size:0.95rem; font-weight:700;"
                     onclick="openAddMedicationModal()">Add Medication</button>
             </div>
@@ -1355,9 +1413,9 @@
             <!-- ACTION BUTTONS -->
             <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid #eee; padding-top:16px; flex-wrap:wrap;"
                 class="no-print">
-                <button class="primary-btn" style="background:#64748b;" onclick="printPrescription()">Print
+                <button class="primary-btn btn-secondary" style="background:#64748b;" onclick="printPrescription()">Print
                     Document</button>
-                <button class="primary-btn" style="background:#10b981;" onclick="submitPrescription()">Save to
+                <button class="primary-btn btn-success" style="background:#10b981;" onclick="submitPrescription()">Save to
                     Electronic Records</button>
             </div>
         </div>
@@ -1420,8 +1478,80 @@
         const fileInput = document.getElementById("file-input");
         const loader = document.getElementById("loader");
         const results = document.getElementById("results-container");
+        const emptyState = document.getElementById("empty-state");
+        const loadingState = document.getElementById("loading-state");
+        const resultsSection = document.getElementById("results-section");
         const previewWrapper = document.getElementById("preview-wrapper");
         const previewImg = document.getElementById("preview-img");
+
+        function setResultsState(state) {
+            [emptyState, loadingState, resultsSection].forEach(section => {
+                if (section) section.style.display = "none";
+            });
+
+            const nextState = document.getElementById(state);
+            if (nextState) nextState.style.display = state === "results-section" ? "block" : "flex";
+        }
+
+        function resetUploadState() {
+            if (previewImg && previewImg.src && previewImg.src.startsWith("blob:")) {
+                URL.revokeObjectURL(previewImg.src);
+            }
+
+            if (fileInput) fileInput.value = "";
+            if (previewImg) {
+                previewImg.removeAttribute("src");
+                previewImg.src = "";
+            }
+            if (previewWrapper) {
+                previewWrapper.style.display = "none";
+                previewWrapper.classList.remove("is-visible");
+            }
+            if (loader) loader.style.display = "none";
+            if (results) results.style.display = "none";
+            setResultsState("empty-state");
+
+            const uploadPatientInfo = document.getElementById("upload-patient-info");
+            if (uploadPatientInfo) uploadPatientInfo.style.display = "none";
+
+            const overlay = document.getElementById("sam-overlay");
+            if (overlay) {
+                overlay.innerHTML = "";
+                overlay.style.display = "none";
+            }
+
+            const samLegend = document.getElementById("sam-legend");
+            if (samLegend) samLegend.style.display = "none";
+
+            const diseasesContainer = document.getElementById("m1-diseases");
+            if (diseasesContainer) diseasesContainer.innerHTML = "";
+
+            const evidenceContainer = document.getElementById("m1-evidence");
+            if (evidenceContainer) {
+                evidenceContainer.innerHTML = "";
+                evidenceContainer.classList.remove("scrollable");
+                evidenceContainer.scrollTop = 0;
+            }
+
+            const resultsPanel = document.getElementById("results-scroll-area");
+            if (resultsPanel) resultsPanel.scrollTop = 0;
+
+            ["scoring-modal", "image-modal", "prescription-modal", "view-rx-modal"].forEach(id => {
+                const modal = document.getElementById(id);
+                if (modal) modal.style.display = "none";
+            });
+
+            closeAddMedicationModal();
+
+            selectedDisease = null;
+            currentScoringData = null;
+            window.lastAssessmentsList = [];
+            window.analyzedImagePath = null;
+            window.prefetchedScores = {};
+            window.pendingScoreFetches = {};
+            currentActiveCaseId = null;
+            currentRxItems = [];
+        }
 
         // Scoring Vars
         const scoringModal = document.getElementById("scoring-modal");
@@ -1450,6 +1580,7 @@
 
             previewImg.src = URL.createObjectURL(file);
             previewWrapper.style.display = "block";
+            previewWrapper.classList.add("is-visible");
 
             // CLEAR PREVIOUS SAM OVERLAYS
             const overlay = document.getElementById("sam-overlay");
@@ -1457,6 +1588,7 @@
             const samLegend = document.getElementById("sam-legend");
             if (samLegend) samLegend.style.display = "none";
 
+            setResultsState("loading-state");
             loader.style.display = "block";
             results.style.display = "none";
 
@@ -1492,6 +1624,7 @@
                     window.analyzedImagePath = data.analyzed_image_path || null;
 
                     results.style.display = "grid";
+                    setResultsState("results-section");
 
                     // Instead of scrollIntoView which causes document scrolling,
                     // we'll just ensure the results are visible within the panel
@@ -1503,14 +1636,19 @@
                 })
                 .catch(err => {
                     console.error("Analysis Error:", err);
+                    setResultsState("empty-state");
                     alert("Error analyzing image. Please try again.");
                 })
                 .finally(() => loader.style.display = "none");
         }
 
+        function normalizeDiseaseName(disease) {
+            return (disease || "").toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ").trim();
+        }
+
         // Helper to map a raw disease name to our internal calculator keys
         function getCalculatorKeyForDisease(disease) {
-            const dStr = disease.toLowerCase();
+            const dStr = normalizeDiseaseName(disease);
             if (dStr.includes("psoriasis")) return "Psoriasis";
             if (dStr.includes("acne")) return "Acne";
             if (dStr.includes("dermatitis") || dStr.includes("eczema")) return "Eczema";
@@ -1523,8 +1661,8 @@
         function upsertAssessment(entry) {
             if (!entry || !entry.disease) return;
             window.lastAssessmentsList = window.lastAssessmentsList || [];
-            const normalized = entry.disease.toLowerCase();
-            const existingIndex = window.lastAssessmentsList.findIndex(item => item.disease && item.disease.toLowerCase() === normalized);
+            const normalized = normalizeDiseaseName(entry.disease);
+            const existingIndex = window.lastAssessmentsList.findIndex(item => item.disease && normalizeDiseaseName(item.disease) === normalized);
             if (existingIndex >= 0) {
                 window.lastAssessmentsList[existingIndex] = entry;
             } else {
@@ -1534,24 +1672,48 @@
 
         // Manual Menu removed as we are driving entirely from disease chips
 
-        function openManualCalc(diseaseName) {
-            let existingData = null;
-            if (window.lastAssessmentsList) {
-                existingData = window.lastAssessmentsList.find(a => a.disease.toLowerCase().includes(diseaseName.toLowerCase()) || diseaseName.toLowerCase().includes(a.disease.toLowerCase().split('_')[0]));
-            }
-
-            if (existingData) {
-                openScoringModal(existingData);
+        function openCalculatorForDisease(sourceDisease) {
+            const calculatorDisease = getCalculatorKeyForDisease(sourceDisease);
+            if (!calculatorDisease) {
+                alert(`${formatDiseaseName(sourceDisease)} calculator is not available yet.`);
                 return;
             }
 
-            openScoringModal({ disease: diseaseName, metrics: { loading_ai: !!window.analyzedImagePath } });
+            openManualCalc(calculatorDisease, {
+                calculatorDisease: calculatorDisease,
+                scoreDisease: sourceDisease
+            });
+        }
+
+        function openManualCalc(diseaseName, options = {}) {
+            const scoreDiseaseName = options.scoreDisease || diseaseName;
+            const calculatorDiseaseName = options.calculatorDisease || getCalculatorKeyForDisease(diseaseName) || diseaseName;
+            const calculatorKey = normalizeDiseaseName(calculatorDiseaseName);
+            const scoreKey = normalizeDiseaseName(scoreDiseaseName);
+            let existingData = null;
+            if (window.lastAssessmentsList) {
+                existingData = window.lastAssessmentsList.find(a => {
+                    const assessmentDisease = normalizeDiseaseName(a.disease);
+                    const assessmentCalculator = normalizeDiseaseName(getCalculatorKeyForDisease(a.disease) || a.disease);
+                    return assessmentDisease === scoreKey
+                        || assessmentDisease.includes(scoreKey)
+                        || scoreKey.includes(assessmentDisease)
+                        || assessmentCalculator === calculatorKey;
+                });
+            }
+
+            if (existingData) {
+                openScoringModal({ ...existingData, disease: calculatorDiseaseName, source_disease: scoreDiseaseName });
+                return;
+            }
+
+            openScoringModal({ disease: calculatorDiseaseName, source_disease: scoreDiseaseName, metrics: { loading_ai: !!window.analyzedImagePath } });
 
             if (!window.analyzedImagePath) {
                 return;
             }
 
-            const pendingKey = diseaseName.toLowerCase();
+            const pendingKey = scoreKey;
             window.pendingScoreFetches = window.pendingScoreFetches || {};
             if (window.pendingScoreFetches[pendingKey]) {
                 return;
@@ -1560,25 +1722,29 @@
             window.pendingScoreFetches[pendingKey] = fetch(`${API_URL}/score_disease`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image_path: window.analyzedImagePath, disease_name: diseaseName })
+                    body: JSON.stringify({ image_path: window.analyzedImagePath, disease_name: scoreDiseaseName })
                 })
                     .then(r => r.json())
                     .then(resp => {
                         if (resp.success) {
-                            const newEntry = { disease: resp.disease, metrics: resp.metrics };
+                            const newEntry = {
+                                disease: calculatorDiseaseName,
+                                source_disease: resp.disease || scoreDiseaseName,
+                                metrics: resp.metrics
+                            };
                             upsertAssessment(newEntry);
-                            if (currentScoringData && currentScoringData.disease && currentScoringData.disease.toLowerCase() === diseaseName.toLowerCase()) {
+                            if (currentScoringData && currentScoringData.disease && normalizeDiseaseName(currentScoringData.disease) === calculatorKey) {
                                 openScoringModal(newEntry);
                             }
                         } else {
-                            if (currentScoringData && currentScoringData.disease && currentScoringData.disease.toLowerCase() === diseaseName.toLowerCase()) {
-                                openScoringModal({ disease: diseaseName, metrics: { ai_unavailable: true } });
+                            if (currentScoringData && currentScoringData.disease && normalizeDiseaseName(currentScoringData.disease) === calculatorKey) {
+                                openScoringModal({ disease: calculatorDiseaseName, source_disease: scoreDiseaseName, metrics: { ai_unavailable: true } });
                             }
                         }
                     })
                     .catch(() => {
-                        if (currentScoringData && currentScoringData.disease && currentScoringData.disease.toLowerCase() === diseaseName.toLowerCase()) {
-                            openScoringModal({ disease: diseaseName, metrics: { ai_unavailable: true } });
+                        if (currentScoringData && currentScoringData.disease && normalizeDiseaseName(currentScoringData.disease) === calculatorKey) {
+                            openScoringModal({ disease: calculatorDiseaseName, source_disease: scoreDiseaseName, metrics: { ai_unavailable: true } });
                         }
                     })
                     .finally(() => {
@@ -1595,37 +1761,48 @@
             let title = "";
             const rawDiseaseName = d.disease ? d.disease.toLowerCase() : "";
             const isCompactEasi = rawDiseaseName.includes("dermatitis") || rawDiseaseName.includes("eczema");
+            const isAcneCalculator = rawDiseaseName.includes("acne");
+            const isDesktopModal = window.innerWidth >= 1100;
+            const isCompactLayout = isCompactEasi || isAcneCalculator;
 
             scoringModal.classList.toggle("compact-easi", isCompactEasi);
             if (scoringDialog) {
-                scoringDialog.style.maxWidth = isCompactEasi ? "560px" : "500px";
-                scoringDialog.style.maxHeight = isCompactEasi ? "94vh" : "90vh";
-                scoringDialog.style.padding = isCompactEasi ? "18px 20px 16px" : "30px";
-                scoringDialog.style.overflowY = isCompactEasi ? "hidden" : "auto";
+                scoringDialog.style.maxWidth = isDesktopModal
+                    ? (isCompactEasi ? "880px" : (isAcneCalculator ? "840px" : "720px"))
+                    : "94vw";
+                scoringDialog.style.maxHeight = isDesktopModal ? "92vh" : "90vh";
+                scoringDialog.style.padding = isCompactLayout ? "16px 18px 14px" : "18px 20px 16px";
+                scoringDialog.style.overflowY = "hidden";
             }
             if (scoringCloseBtn) {
                 scoringCloseBtn.style.top = isCompactEasi ? "10px" : "15px";
                 scoringCloseBtn.style.right = isCompactEasi ? "10px" : "15px";
                 scoringCloseBtn.style.fontSize = isCompactEasi ? "1.35rem" : "1.5rem";
             }
+            if (scoringContent) {
+                scoringContent.style.flex = "1 1 auto";
+                scoringContent.style.minHeight = "0";
+                scoringContent.style.overflowY = "auto";
+                scoringContent.style.paddingRight = isDesktopModal ? "4px" : "2px";
+            }
             if (scoringFooter) {
-                scoringFooter.style.marginTop = isCompactEasi ? "14px" : "20px";
-                scoringFooter.style.paddingTop = isCompactEasi ? "14px" : "20px";
+                scoringFooter.style.marginTop = isCompactLayout ? "12px" : "14px";
+                scoringFooter.style.paddingTop = isCompactLayout ? "12px" : "14px";
             }
             if (finalScoreDisplay) {
-                finalScoreDisplay.style.fontSize = isCompactEasi ? "1.05rem" : "1.2rem";
+                finalScoreDisplay.style.fontSize = isCompactLayout ? "1.02rem" : "1.12rem";
             }
             if (scoringActions) {
-                scoringActions.style.gap = isCompactEasi ? "10px" : "15px";
-                scoringActions.style.marginTop = isCompactEasi ? "12px" : "20px";
+                scoringActions.style.gap = isCompactLayout ? "10px" : "12px";
+                scoringActions.style.marginTop = isCompactLayout ? "12px" : "14px";
             }
             if (scoringSaveBtn) {
-                scoringSaveBtn.style.padding = isCompactEasi ? "8px 16px" : "10px 20px";
-                scoringSaveBtn.style.fontSize = isCompactEasi ? "0.92rem" : "1rem";
+                scoringSaveBtn.style.padding = isCompactLayout ? "8px 16px" : "9px 18px";
+                scoringSaveBtn.style.fontSize = isCompactLayout ? "0.92rem" : "0.96rem";
             }
             if (scoringGenerateBtn) {
-                scoringGenerateBtn.style.padding = isCompactEasi ? "8px 18px" : "10px 24px";
-                scoringGenerateBtn.style.fontSize = isCompactEasi ? "0.92rem" : "1rem";
+                scoringGenerateBtn.style.padding = isCompactLayout ? "8px 18px" : "9px 20px";
+                scoringGenerateBtn.style.fontSize = isCompactLayout ? "0.92rem" : "0.96rem";
             }
 
             // Draw SAM Polygons overlay immediately
@@ -1676,13 +1853,16 @@
             const rangeInput = (label, toolTip, id, rawVal, max = 4) => {
                 const val = safeVal(rawVal);
                 const perc = max > 0 ? (val / max) * 100 : 0;
+                const fieldGap = isCompactLayout ? 8 : 12;
+                const fieldMargin = isCompactLayout ? 10 : 15;
+                const labelMargin = isCompactLayout ? 6 : 8;
                 return `
-                <div style="margin-bottom:15px;">
-                    <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:8px;">
+                <div class="score-field" style="margin-bottom:${fieldMargin}px;">
+                    <label style="display:block; color:#64748b; font-size:${isCompactLayout ? "0.86rem" : "0.9rem"}; margin-bottom:${labelMargin}px;">
                         <strong>${label}</strong>
                         <span style="font-size: 0.75rem; color:#94a3b8; font-weight:normal; margin-left:5px;">${toolTip}</span>
                     </label>
-                    <div style="display:flex; align-items:center; gap:12px;">
+                    <div class="score-slider-row" style="display:flex; align-items:center; gap:${fieldGap}px;">
                         <span style="font-size:0.8rem; color:#94a3b8; font-weight:bold;">0</span>
                         <input type="range" min="0" max="${max}" value="${val}" id="${id}" data-initial-value="${val}" style="flex:1; background: linear-gradient(to right, #0ea5e9 ${perc}%, #e2e8f0 ${perc}%);" 
                             oninput="
@@ -1701,12 +1881,12 @@
                 const val = safeVal(rawVal);
                 const perc = max > 0 ? (val / max) * 100 : 0;
                 return `
-                <div style="margin-bottom:10px;">
+                <div class="score-field score-field-compact" style="margin-bottom:${isCompactLayout ? "8px" : "10px"};">
                     <label style="display:block; color:#64748b; font-size:0.86rem; margin-bottom:6px;">
                         <strong>${label}</strong>
                         <span style="font-size:0.72rem; color:#94a3b8; font-weight:normal; margin-left:5px;">${toolTip}</span>
                     </label>
-                    <div style="display:flex; align-items:center; gap:10px;">
+                    <div class="score-slider-row" style="display:flex; align-items:center; gap:10px;">
                         <span style="font-size:0.76rem; color:#94a3b8; font-weight:bold;">0</span>
                         <input type="range" min="0" max="${max}" value="${val}" id="${id}" data-initial-value="${val}" style="flex:1; background: linear-gradient(to right, #0ea5e9 ${perc}%, #e2e8f0 ${perc}%);"
                             oninput="
@@ -1725,8 +1905,8 @@
             const numInput = (label, id, rawVal, max = 100) => {
                 let val = (rawVal === undefined || rawVal === null) ? 1 : rawVal;
                 return `
-                <div style="margin-bottom:15px;">
-                    <label style="display:block; color:#64748b; font-size:0.9rem; margin-bottom:5px;">${label}</label>
+                <div class="score-field score-number-field" style="margin-bottom:${isCompactLayout ? "10px" : "15px"};">
+                    <label style="display:block; color:#64748b; font-size:${isCompactLayout ? "0.86rem" : "0.9rem"}; margin-bottom:5px;">${label}</label>
                     <input type="number" min="0" max="${max}" value="${val}" id="${id}" data-initial-value="${val}" 
                         oninput="calculateFinalScore()"
                         style="width:100%; padding:9px; border:1px solid #ccc; border-radius:8px; color:#333; background: #fff; font-size:1rem;">
@@ -1770,7 +1950,7 @@
             if (!isBlocked && m.confidence_score !== undefined && m.confidence_score > 0) {
                 let color = m.confidence_score >= 80 ? "#16a34a" : (m.confidence_score >= 60 ? "#d97706" : "#dc2626");
                 let text = m.confidence_score >= 80 ? "High" : (m.confidence_score >= 60 ? "Moderate" : "Low (Capped)");
-                confHtml = `<div style="margin-bottom:${isCompactEasi ? "10px" : "15px"}; font-size:${isCompactEasi ? "0.8rem" : "0.85rem"}; padding:${isCompactEasi ? "7px 10px" : "8px 12px"}; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                confHtml = `<div class="confidence-strip" style="margin-bottom:${isCompactEasi ? "10px" : "15px"}; font-size:${isCompactEasi ? "0.8rem" : "0.85rem"}; padding:${isCompactEasi ? "7px 10px" : "8px 12px"}; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
                     <span style="color:#64748b; font-weight:600;">Mathematical Confidence:</span>
                     <span style="color:${color}; font-weight:bold; padding:4px 8px; border-radius:4px; background:${color}15;">${m.confidence_score}% (${text})</span>
                 </div>`;
@@ -1799,71 +1979,31 @@
                 title = "GAGS Calculator (Acne)";
                 const estSev = safeVal(m.max_severity_grade);
                 const gagsRegions = [
-                    { id: "fh", label: "Forehead (x2)", factor: 2 },
-                    { id: "rc", label: "Right Cheek (x2)", factor: 2 },
-                    { id: "lc", label: "Left Cheek (x2)", factor: 2 },
-                    { id: "no", label: "Nose (x1)", factor: 1 },
-                    { id: "ch", label: "Chin (x1)", factor: 1 },
-                    { id: "cb", label: "Chest/Back (x3)", factor: 3 }
+                    { id: "fh", label: "Forehead", sliderLabel: "Forehead (x2)", factor: 2 },
+                    { id: "rc", label: "Right Cheek", sliderLabel: "Right Cheek (x2)", factor: 2 },
+                    { id: "lc", label: "Left Cheek", sliderLabel: "Left Cheek (x2)", factor: 2 },
+                    { id: "no", label: "Nose", sliderLabel: "Nose (x1)", factor: 1 },
+                    { id: "ch", label: "Chin", sliderLabel: "Chin (x1)", factor: 1 },
+                    { id: "cb", label: "Chest/Back", sliderLabel: "Chest/Back (x3)", factor: 3 }
                 ];
-
-                let mapHtml = '';
-                if (!isBlocked && m.max_severity_grade !== undefined) {
-                    const chkStyle = `cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:10px; font-weight:600; font-size:0.95rem; transition:all 0.2s ease; color:#475569; user-select:none; flex:1; min-width:120px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.02);`;
-                    const chkOnStyle = `this.parentElement.style.background='#3b82f6'; this.parentElement.style.borderColor='#2563eb'; this.parentElement.style.color='#ffffff'; this.parentElement.style.boxShadow='0 4px 6px rgba(59,130,246,0.3)';`;
-                    const chkOffStyle = `this.parentElement.style.background='#f8fafc'; this.parentElement.style.borderColor='#e2e8f0'; this.parentElement.style.color='#475569'; this.parentElement.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)';`;
                 const hasRegional = (m.regional_scores !== undefined && m.regional_scores !== null);
-
-                    // Get the actual per-region AI score. Use it directly — 0 means AI saw no lesions there.
-                    // Only fall back to estSev if regional_scores dict is entirely missing.
                 const getRegScore = (key) => hasRegional && m.regional_scores[key] !== undefined ? m.regional_scores[key] : estSev;
 
-                    mapHtml = `
-                    <div class="ai-mapping-container" style="background:#f0f9ff; border:1px solid #bae6fd; padding:18px; border-radius:12px; margin-bottom:20px; box-shadow:0 4px 6px rgba(0,0,0,0.02);">
-                        <label style="font-weight:700; color:#0284c7; display:flex; align-items:center; gap:8px; margin-bottom:4px; font-size:0.95rem;">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                            Select affected parts
-                        </label>
-                        <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">Check all regions where lesions are present. Severity will be set based on AI estimate.</div>
-                        <div style="display:flex; flex-wrap:wrap; gap:10px;">
-                            <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-fh', ${getRegScore('fh')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-fh', 0); } calculateFinalScore();"> Forehead
-                            </label>
-                            <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-rc', ${getRegScore('rc')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-rc', 0); } calculateFinalScore();"> R. Cheek
-                            </label>
-                            <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-lc', ${getRegScore('lc')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-lc', 0); } calculateFinalScore();"> L. Cheek
-                            </label>
-                            <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-no', ${getRegScore('no')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-no', 0); } calculateFinalScore();"> Nose
-                            </label>
-                            <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-ch', ${getRegScore('ch')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-ch', 0); } calculateFinalScore();"> Chin
-                            </label>
-                            <label class="region-pill" style="${chkStyle}">
-                                <input type="checkbox" style="position:absolute; opacity:0; cursor:pointer; height:0; width:0;" onchange="if(this.checked) { ${chkOnStyle} window.updateSlider('gags-sev-cb', ${getRegScore('cb')}); } else { ${chkOffStyle} window.updateSlider('gags-sev-cb', 0); } calculateFinalScore();"> Chest/Back
-                            </label>
-                        </div>
+                html += `
+                    <div class="gags-rule-banner" style="font-size:0.82rem; margin-bottom:12px;">
+                        Doctor input: score each region by the most severe lesion type present.<br>
+                        0=Clear, 1=Comedones, 2=Papules, 3=Pustules, 4=Nodules
                     </div>
-                    `;
-                }
-
-                html += "";
-
-                let gagsHtml = `
-                    <div class="ai-banner" style="font-size:0.85rem; color:#64748b; margin-bottom:15px; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
-                        <strong>Rule:</strong> Select the MOST SEVERE lesion present in each region. Max Score is 44.<br>
-                        (0=Clear, 1=Comedones, 2=Papules, 3=Pustules, 4=Nodules)
-                    </div>
+                    <div class="gags-score-grid">
                 `;
                 gagsRegions.forEach(r => {
-                    // Embed the factor in a hidden data attribute since we are substituting the <select> element
-                    gagsHtml += `<div data-gags-factor="${r.factor}" id="gags-wrapper-${r.id}">`;
-                    gagsHtml += rangeInput(`${r.label}`, "(Severity 0-4)", `gags-sev-${r.id}`, getRegScore(r.id), 4);
-                    gagsHtml += `</div>`;
+                    html += `<div class="gags-score-card" data-gags-factor="${r.factor}" id="gags-wrapper-${r.id}">`;
+                    html += rangeInput(`${r.sliderLabel}`, "(Severity 0-4)", `gags-sev-${r.id}`, getRegScore(r.id), 4);
+                    html += `</div>`;
                 });
-                html += gagsHtml;
+                html += `
+                        </div>
+                `;
 
             } else if (dName.includes("dermatitis") || dName.includes("eczema")) {
                 title = "EASI Calculator (Atopic Dermatitis)";
@@ -2163,22 +2303,22 @@
                 }
             };
 
-            const displayDiseaseName = formatDiseaseName(d.disease || selectedDisease || "Selected Disease");
+            const displayDiseaseName = formatDiseaseName(d.source_disease || d.disease || selectedDisease || "Selected Disease");
 
             scoringContent.innerHTML = `
-                <div id="scoring-header" style="display:flex; flex-direction:column; align-items:center; text-align:center; border-bottom:1px solid #eee; padding:0 35px 10px; margin-bottom:15px; gap:8px;">
-                    <div>
+                <div id="scoring-header" class="scoring-header-layout" style="display:flex; justify-content:space-between; align-items:flex-start; text-align:left; border-bottom:1px solid #eee; padding:0 28px 10px; margin-bottom:12px; gap:12px; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:220px;">
                         <div class="scoring-disease-name">${displayDiseaseName}</div>
                         <h4 style="margin:0; color:#334155;">${title}</h4>
                     </div>
                     <button onclick="resetAllSliders()" style="font-size:0.75rem; padding:4px 10px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer; font-weight:600;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">↺ Reset AI Estimates</button>
                 </div>
-                <div class="config-group" style="color:#333;">${html}</div>
+                <div class="config-group scoring-config" style="color:#333;">${html}</div>
             `;
             const resetAiButton = scoringContent.querySelector('button[onclick="resetAllSliders()"]');
             if (resetAiButton) {
-                resetAiButton.style.fontSize = isCompactEasi ? "0.72rem" : "0.75rem";
-                resetAiButton.style.padding = isCompactEasi ? "3px 9px" : "4px 10px";
+                resetAiButton.style.fontSize = isCompactLayout ? "0.72rem" : "0.75rem";
+                resetAiButton.style.padding = isCompactLayout ? "3px 9px" : "4px 10px";
             }
             scoringContent.querySelectorAll("input[type=range]").forEach(input => {
                 if (input.id.startsWith("pasi-e-")) window.updateSlider(input.id, safeVal(m.erythema));
@@ -2220,16 +2360,7 @@
                 });
             }
             scoringModal.style.display = "flex";
-            if (isCompactEasi && scoringDialog) {
-                requestAnimationFrame(() => {
-                    const dialogOverflows = scoringDialog.scrollHeight > (scoringDialog.clientHeight + 4);
-                    if (dialogOverflows) {
-                        scoringDialog.style.maxWidth = "580px";
-                        scoringDialog.style.padding = "16px 18px 14px";
-                    }
-                    scoringDialog.style.overflowY = scoringDialog.scrollHeight > (scoringDialog.clientHeight + 4) ? "auto" : "hidden";
-                });
-            }
+            if (scoringContent) scoringContent.scrollTop = 0;
             calculateFinalScore(); // Initial Calc
         }
 
@@ -2312,7 +2443,7 @@
                 const chip = document.createElement("div");
                 chip.className = "disease-chip";
                 // If it was already selected previously, keep it selected visually
-                if (selectedDisease === d) {
+                if (normalizeDiseaseName(selectedDisease) === normalizeDiseaseName(d)) {
                     chip.classList.add("selected");
                 }
                 chip.innerText = formatDiseaseName(d);
@@ -2325,10 +2456,7 @@
                     selectedDisease = d;
 
                     // Automatically open the calculator if one exists for the selected disease
-                    const diseaseKey = getCalculatorKeyForDisease(d);
-                    if (diseaseKey) {
-                        openManualCalc(diseaseKey);
-                    }
+                    openCalculatorForDisease(d);
                 };
 
                 c.appendChild(chip);
@@ -2338,18 +2466,28 @@
         function renderEvidence(id, cases) {
             const container = document.getElementById(id);
             container.innerHTML = "";
-            let currentDisplayCount = 4;
+            const allCases = Array.isArray(cases) ? cases : [];
+            let currentDisplayCount = Math.min(6, allCases.length);
 
             const renderBatch = () => {
                 container.innerHTML = "";
-                container.classList.toggle('scrollable', currentDisplayCount > 4);
-                const visibleCases = cases.slice(0, currentDisplayCount);
+                container.classList.toggle('scrollable', currentDisplayCount < allCases.length);
+
+                if (!allCases.length) {
+                    container.innerHTML = `<div class="results-hint">No supporting cases were returned for this upload.</div>`;
+                    return;
+                }
+
+                const visibleCases = allCases.slice(0, currentDisplayCount);
 
                 visibleCases.forEach((caseItem, index) => {
                     // Sanitize URL: remove whitespace/newlines that can appear from DB paths
                     const img = (caseItem.web_url || '').replace(/\s+/g, '');
                     const div = document.createElement("div");
                     div.className = "evidence-item";
+                    if (normalizeDiseaseName(selectedDisease) === normalizeDiseaseName(caseItem.disease)) {
+                        div.classList.add("selected-case");
+                    }
                     // Add Staggered Fade-In Animation
                     div.style.animation = "fadeInUp 0.4s ease forwards";
                     div.style.animationDelay = (index * 0.08) + "s";
@@ -2366,19 +2504,21 @@
                     `;
                     div.onclick = () => {
                         // Select disease from the supporting evidence and open calculator immediately
+                        container.querySelectorAll('.evidence-item').forEach(el => el.classList.remove('selected-case'));
+                        div.classList.add('selected-case');
                         selectedDisease = caseItem.disease;
-                        openManualCalc(caseItem.disease);
+                        openCalculatorForDisease(caseItem.disease);
                     };
                     container.appendChild(div);
                 });
 
-                if (currentDisplayCount < cases.length) {
+                if (currentDisplayCount < allCases.length) {
                     const loadMoreBtn = document.createElement("button");
-                    loadMoreBtn.className = "primary-btn";
-                    loadMoreBtn.style = "margin-top:15px; width:100%; background:#f8fafc; color:#475569; border:1px solid #cbd5e1; padding:8px; font-size:0.9rem;";
-                    loadMoreBtn.innerText = "Load More Cases (" + (cases.length - currentDisplayCount) + " remaining)";
+                    loadMoreBtn.type = "button";
+                    loadMoreBtn.className = "btn-secondary results-load-more";
+                    loadMoreBtn.innerText = "Load More Results (" + (allCases.length - currentDisplayCount) + " remaining)";
                     loadMoreBtn.onclick = () => {
-                        currentDisplayCount += 6;
+                        currentDisplayCount = Math.min(currentDisplayCount + 6, allCases.length);
                         renderBatch();
                     };
                     container.appendChild(loadMoreBtn);
@@ -2936,6 +3076,7 @@
         }
 
         function selectPatient(id, name, age, gender, history) {
+            resetUploadState();
             currentPatient = { id, name, age, gender, medical_history: history };
             // Show badge
             document.getElementById('selected-patient-label').textContent = name;
@@ -3093,7 +3234,7 @@
             document.getElementById('patient-actions').style.display = 'none'; // hide continue btn container
             closeHistoryModal();
             closeAddMedicationModal();
-            document.getElementById('upload-step').style.display = 'block';
+            document.getElementById('upload-step').style.display = 'flex';
             setUploadWorkspace(true);
             
             // populate upload-step patient summary
@@ -3107,8 +3248,11 @@
         }
 
         function backToPatientStep() {
+            resetUploadState();
             document.getElementById('upload-step').style.display = 'none';
             document.getElementById('patient-step').style.display = 'block';
+            document.getElementById('patient-actions').style.display = currentPatient ? 'flex' : 'none';
+            closeHistoryModal();
             closeAddMedicationModal();
             setUploadWorkspace(false);
         }

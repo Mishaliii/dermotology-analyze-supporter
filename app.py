@@ -7,6 +7,7 @@ import shutil
 import os
 import sys
 import uuid
+import time
 
 # --------------------------------------------------
 # PATH SETUP
@@ -18,7 +19,8 @@ SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
 sys.path.append(SCRIPTS_DIR)
 
 try:
-    from scripts.pipeline import analyze_skin_image
+    from scripts.pipeline import analyze_skin_image, load_models
+    from scripts.scoring import get_fastsam_model, get_calibration_data
     from scripts.prescription import (
         create_case, search_medicines, generate_treatment_suggestions, 
         save_prescription, get_doctor_cases, get_patient_history, get_prescription, add_medicine,
@@ -26,7 +28,8 @@ try:
     )
     from scripts.auth import signup_doctor, login_doctor
 except ImportError:
-    from pipeline import analyze_skin_image
+    from pipeline import analyze_skin_image, load_models
+    from scoring import get_fastsam_model, get_calibration_data
     from prescription import (
         create_case, search_medicines, generate_treatment_suggestions, 
         save_prescription, get_doctor_cases, get_patient_history, get_prescription, add_medicine,
@@ -99,6 +102,30 @@ app = FastAPI(
     description="AI-powered dermatology similarity analysis",
     version="1.0"
 )
+
+
+@app.on_event("startup")
+def warmup_models_on_startup():
+    """
+    Preload heavy AI assets once at app startup so the first user upload is responsive.
+    """
+    start = time.perf_counter()
+    try:
+        print("[WARMUP] Loading DINOv2 + FAISS index...")
+        load_models()
+        print("[WARMUP] DINOv2 + FAISS ready")
+    except Exception as exc:
+        print(f"[WARMUP] DINOv2/FAISS preload skipped: {exc}")
+
+    try:
+        print("[WARMUP] Loading calibration + FastSAM...")
+        get_calibration_data()
+        get_fastsam_model()
+        print("[WARMUP] FastSAM ready")
+    except Exception as exc:
+        print(f"[WARMUP] FastSAM preload skipped: {exc}")
+
+    print(f"[WARMUP] Completed in {time.perf_counter() - start:.2f}s")
 
 # --------------------------------------------------
 # CORS
@@ -208,8 +235,6 @@ def api_patient_history(patient_id: int):
 # --------------------------------------------------
 # HELPERS
 # --------------------------------------------------
-
-import time
 
 def cleanup_old_files(directory, age_minutes=60):
     """

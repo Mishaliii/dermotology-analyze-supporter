@@ -4,9 +4,11 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
     <title>DermAI CDSS — Login</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
         rel="stylesheet" />
+    <link rel="stylesheet" href="/static/ui-overrides.css" />
     <style>
         *,
         *::before,
@@ -351,13 +353,21 @@
     </style>
 </head>
 
-<body>
+<body class="login-page bg-slate-950 text-slate-100">
 
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
     <div class="blob blob-3"></div>
 
-    <div class="card">
+    <main class="login-shell">
+        <div class="login-grid">
+            <section class="auth-showcase">
+                <div class="text-xs font-semibold uppercase tracking-[0.32em] text-blue-300">Clinical Decision Support</div>
+                <h2 class="mt-5 text-4xl font-semibold leading-tight text-slate-50">AI-powered dermatology analysis for accurate, efficient clinical review.</h2>
+                <p class="mt-5 max-w-xl text-base leading-8 text-slate-400">Secure, reliable, and designed for real clinical workflows.</p>
+            </section>
+
+            <div class="card">
 
         <!-- Logo -->
         <div class="logo-area">
@@ -378,16 +388,36 @@
 
             <div class="field">
                 <label>Email Address</label>
-                <input type="email" id="login-email" placeholder="doctor@hospital.com" autocomplete="email" />
+                <div class="input-shell">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16v12H4z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4 7 8 6 8-6"></path>
+                    </svg>
+                    <input type="email" id="login-email" placeholder="doctor@hospital.com" autocomplete="email" />
+                </div>
             </div>
 
             <div class="field">
                 <label>Password</label>
-                <input type="password" id="login-password" placeholder="Enter your password"
-                    autocomplete="current-password" />
+                <div class="input-shell">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                    </svg>
+                    <input type="password" id="login-password" placeholder="Enter your password"
+                        autocomplete="current-password" />
+                </div>
             </div>
 
-            <button class="btn-submit" id="login-btn" onclick="doLogin()">Login</button>
+            <div class="remember-row">
+                <label class="remember-label"><input type="checkbox" id="remember-me"> <span>Remember me</span></label>
+                <span>Secure clinician access</span>
+            </div>
+
+            <button class="btn-submit" id="login-btn" onclick="doLogin()">
+                <span class="btn-label" data-idle="Login">Login</span>
+                <span class="spinner-inline hidden" aria-hidden="true"></span>
+            </button>
 
             <p class="switch-hint">
                 No account yet? <a onclick="switchTab('signup')">Create one →</a>
@@ -400,17 +430,35 @@
 
             <div class="field">
                 <label>Full Name</label>
-                <input type="text" id="su-name" placeholder="Dr. Your Name" autocomplete="name" />
+                <div class="input-shell">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <circle cx="12" cy="8" r="3.5"></circle>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 19a7 7 0 0 1 14 0"></path>
+                    </svg>
+                    <input type="text" id="su-name" placeholder="Dr. Your Name" autocomplete="name" />
+                </div>
             </div>
 
             <div class="field">
                 <label>Email Address</label>
-                <input type="email" id="su-email" placeholder="doctor@hospital.com" autocomplete="email" />
+                <div class="input-shell">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16v12H4z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4 7 8 6 8-6"></path>
+                    </svg>
+                    <input type="email" id="su-email" placeholder="doctor@hospital.com" autocomplete="email" />
+                </div>
             </div>
 
             <div class="field">
                 <label>Password</label>
-                <input type="password" id="su-password" placeholder="Choose a password" autocomplete="new-password" />
+                <div class="input-shell">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                    </svg>
+                    <input type="password" id="su-password" placeholder="Choose a password" autocomplete="new-password" />
+                </div>
             </div>
 
             <hr class="divider" />
@@ -418,15 +466,30 @@
             <div class="row-2">
                 <div class="field">
                     <label>License No. <span class="opt-badge">optional</span></label>
-                    <input type="text" id="su-license" placeholder="LIC-12345" />
+                    <div class="input-shell">
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h8M8 12h8M8 17h5"></path>
+                            <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                        </svg>
+                        <input type="text" id="su-license" placeholder="LIC-12345" />
+                    </div>
                 </div>
                 <div class="field">
                     <label>Clinic Name <span class="opt-badge">optional</span></label>
-                    <input type="text" id="su-clinic" placeholder="City Derm Clinic" />
+                    <div class="input-shell">
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 20V9l6-4 6 4v11"></path>
+                        </svg>
+                        <input type="text" id="su-clinic" placeholder="City Derm Clinic" />
+                    </div>
                 </div>
             </div>
 
-            <button class="btn-submit" id="signup-btn" onclick="doSignup()">Create Account</button>
+            <button class="btn-submit" id="signup-btn" onclick="doSignup()">
+                <span class="btn-label" data-idle="Create Account">Create Account</span>
+                <span class="spinner-inline hidden" aria-hidden="true"></span>
+            </button>
 
             <p class="switch-hint">
                 Already have an account? <a onclick="switchTab('login')">Login →</a>
@@ -435,6 +498,8 @@
 
         <p class="footer">© 2025 DermAI CDSS &nbsp;·&nbsp; For authorized medical personnel only</p>
     </div>
+        </div>
+    </main>
 
     <script>
         // ── Redirect if already logged in ──────────────────────────────
@@ -465,7 +530,7 @@
             el.textContent = msg;
         }
 
-        function setLoading(btnId, loading, label) {
+        function legacySetLoading(btnId, loading, label) {
             const btn = document.getElementById(btnId);
             btn.disabled = loading;
             btn.innerHTML = loading
@@ -557,6 +622,28 @@
         }
 
         // ── Enter key triggers submit ──────────────────────────────────
+        function setLoading(btnId, loading, label) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+
+            const text = btn.querySelector('.btn-label');
+            const loader = btn.querySelector('.spinner-inline');
+            const idleLabel = (text && text.dataset.idle) ? text.dataset.idle : label;
+
+            btn.disabled = loading;
+            btn.setAttribute('aria-busy', loading ? 'true' : 'false');
+
+            if (text) {
+                text.innerText = loading ? 'Please wait...' : idleLabel;
+            } else {
+                btn.textContent = loading ? 'Please wait...' : idleLabel;
+            }
+
+            if (loader) {
+                loader.classList.toggle('hidden', !loading);
+            }
+        }
+
         document.addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;
             const loginActive = document.getElementById('panel-login').classList.contains('active');
