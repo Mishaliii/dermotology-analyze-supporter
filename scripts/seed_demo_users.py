@@ -1,5 +1,6 @@
 import psycopg
 import sys
+import hashlib
 
 # Database Credentials
 DB_HOST = "localhost"
@@ -13,11 +14,30 @@ def seed_users():
     try:
         with psycopg.connect(conn_str) as conn:
             with conn.cursor() as cur:
+                admin_hash = hashlib.sha256("Admin@123".encode("utf-8")).hexdigest()
+
+                # Insert Admin Doctor
+                cur.execute(
+                    """
+                    INSERT INTO doctors (name, email, license_number, clinic_name, password_hash, is_admin, approved)
+                    VALUES (%s, %s, %s, %s, %s, TRUE, TRUE)
+                    ON CONFLICT (email) DO UPDATE
+                    SET
+                        password_hash = EXCLUDED.password_hash,
+                        is_admin = TRUE,
+                        approved = TRUE
+                    RETURNING id;
+                    """,
+                    ("System Admin", "admin@clinic.com", "ADMIN-001", "Derm Support Clinic", admin_hash),
+                )
+                admin_id = cur.fetchone()[0]
+                print(f"Admin user ready with ID: {admin_id} (email: admin@clinic.com)")
+
                 # Insert Demo Doctor (id will likely be 1 if it's the first insert, but we'll use RETURNING id just in case)
                 cur.execute("""
-                    INSERT INTO doctors (name, email, license_number, clinic_name)
-                    VALUES ('Dr. Demo', 'demo@clinic.com', 'LIC12345', 'Derm Support Clinic')
-                    ON CONFLICT (email) DO NOTHING
+                    INSERT INTO doctors (name, email, license_number, clinic_name, approved)
+                    VALUES ('Dr. Demo', 'demo@clinic.com', 'LIC12345', 'Derm Support Clinic', TRUE)
+                    ON CONFLICT (email) DO UPDATE SET approved = TRUE
                     RETURNING id;
                 """)
                 doctor_result = cur.fetchone()

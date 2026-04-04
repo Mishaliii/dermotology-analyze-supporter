@@ -40,6 +40,19 @@ def run_migration():
                 """)
                 print("Added 'created_at' column to 'doctors'.")
 
+                # Admin workflow columns
+                cur.execute("""
+                    ALTER TABLE doctors
+                    ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
+                """)
+                print("Added 'is_admin' column to 'doctors'.")
+
+                cur.execute("""
+                    ALTER TABLE doctors
+                    ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT FALSE;
+                """)
+                print("Added 'approved' column to 'doctors'.")
+
             conn.commit()
             print("Migration completed successfully!")
         

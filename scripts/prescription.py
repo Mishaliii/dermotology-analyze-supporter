@@ -13,6 +13,16 @@ def get_db_connection():
     conn_str = f"host={DB_HOST} port={DB_PORT} user={DB_USER} password={DB_PASSWORD} dbname={DB_NAME}"
     return psycopg.connect(conn_str)
 
+
+def _is_admin_doctor(cur, doctor_id: int) -> bool:
+    """Best-effort admin check that remains safe on older schemas."""
+    try:
+        cur.execute("SELECT COALESCE(is_admin, FALSE) FROM doctors WHERE id = %s", (doctor_id,))
+        row = cur.fetchone()
+        return bool(row and row[0])
+    except Exception:
+        return False
+
 def search_patients(doctor_id: int, query: str = ""):
     """
     Returns patients linked to this doctor matching the search query.
@@ -20,11 +30,48 @@ def search_patients(doctor_id: int, query: str = ""):
     """
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            if query.strip():
+            is_admin = _is_admin_doctor(cur, doctor_id)
+
+            if is_admin:
+                if query.strip():
+                    cur.execute("""
+                        SELECT
+                            p.id,
+                            p.name,
+                            p.age,
+                            p.gender,
+                            p.medical_history,
+                            COALESCE(string_agg(DISTINCT d.name, ', ' ORDER BY d.name), 'Unassigned') AS doctor_name
+                        FROM patients p
+                        LEFT JOIN doctor_patients dp ON dp.patient_id = p.id
+                        LEFT JOIN doctors d ON d.id = dp.doctor_id
+                        WHERE p.name ILIKE %s
+                        GROUP BY p.id, p.name, p.age, p.gender, p.medical_history
+                        ORDER BY p.id DESC
+                        LIMIT 200
+                    """, (f"%{query.strip()}%",))
+                else:
+                    cur.execute("""
+                        SELECT
+                            p.id,
+                            p.name,
+                            p.age,
+                            p.gender,
+                            p.medical_history,
+                            COALESCE(string_agg(DISTINCT d.name, ', ' ORDER BY d.name), 'Unassigned') AS doctor_name
+                        FROM patients p
+                        LEFT JOIN doctor_patients dp ON dp.patient_id = p.id
+                        LEFT JOIN doctors d ON d.id = dp.doctor_id
+                        GROUP BY p.id, p.name, p.age, p.gender, p.medical_history
+                        ORDER BY p.id DESC
+                        LIMIT 200
+                    """)
+            elif query.strip():
                 cur.execute("""
-                    SELECT p.id, p.name, p.age, p.gender, p.medical_history
+                    SELECT p.id, p.name, p.age, p.gender, p.medical_history, d.name AS doctor_name
                     FROM patients p
                     JOIN doctor_patients dp ON dp.patient_id = p.id
+                    JOIN doctors d ON d.id = dp.doctor_id
                     WHERE dp.doctor_id = %s
                       AND p.name ILIKE %s
                     ORDER BY p.name
@@ -32,9 +79,10 @@ def search_patients(doctor_id: int, query: str = ""):
                 """, (doctor_id, f"%{query.strip()}%"))
             else:
                 cur.execute("""
-                    SELECT p.id, p.name, p.age, p.gender, p.medical_history
+                    SELECT p.id, p.name, p.age, p.gender, p.medical_history, d.name AS doctor_name
                     FROM patients p
                     JOIN doctor_patients dp ON dp.patient_id = p.id
+                    JOIN doctors d ON d.id = dp.doctor_id
                     WHERE dp.doctor_id = %s
                     ORDER BY p.id DESC
                     LIMIT 20
@@ -47,7 +95,8 @@ def search_patients(doctor_id: int, query: str = ""):
                     "name": r[1],
                     "age": r[2],
                     "gender": r[3] or "",
-                    "medical_history": r[4] or ""
+                    "medical_history": r[4] or "",
+                    "doctor_name": r[5] or ""
                 }
                 for r in rows
             ]
@@ -59,6 +108,8 @@ def create_patient(doctor_id: int, name: str, age: int, gender: str = "", medica
     Returns {success, patient_id, name, age, gender, medical_history}.
     """
     name = name.strip()
+    gender = gender.strip()
+    medical_history = medical_history.strip()
     if not name:
         return {"success": False, "error": "Patient name is required."}
     if age is None or age < 0 or age > 150:
@@ -67,11 +118,35 @@ def create_patient(doctor_id: int, name: str, age: int, gender: str = "", medica
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
+                # Prevent accidental duplicate registration under the same doctor.
+                cur.execute(
+                    """
+                    SELECT p.id
+                    FROM patients p
+                    JOIN doctor_patients dp ON dp.patient_id = p.id
+                    WHERE dp.doctor_id = %s
+                      AND lower(trim(p.name)) = lower(trim(%s))
+                      AND p.age = %s
+                      AND lower(coalesce(trim(p.gender), '')) = lower(coalesce(trim(%s), ''))
+                    ORDER BY p.id DESC
+                    LIMIT 1
+                    """,
+                    (doctor_id, name, age, gender),
+                )
+                existing = cur.fetchone()
+                if existing:
+                    return {
+                        "success": False,
+                        "duplicate": True,
+                        "patient_id": existing[0],
+                        "error": "A patient with the same name, age, and gender already exists under this doctor.",
+                    }
+
                 cur.execute("""
                     INSERT INTO patients (name, age, gender, medical_history)
                     VALUES (%s, %s, %s, %s)
                     RETURNING id
-                """, (name, age, gender.strip(), medical_history.strip()))
+                """, (name, age, gender, medical_history))
                 patient_id = cur.fetchone()[0]
 
                 # Link patient to this doctor
@@ -142,30 +217,28 @@ def create_case(doctor_id: int, patient_id: int, image_path: str, predicted_dise
     Called when the doctor confirms the calculator screen and moves to the prescription screen.
     Returns the newly generated case_id.
     """
-    # For MVP: if patient or doctor don't exist, we can auto-create dummy ones for testing
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            # 1. Ensure dummy doctor exists if 0
-            if doctor_id == 0:
-                cur.execute("SELECT id FROM doctors LIMIT 1")
-                doc = cur.fetchone()
-                if not doc:
-                    cur.execute("INSERT INTO doctors (name, email) VALUES ('Dr. Demo', 'dr@demo.com') RETURNING id")
-                    doctor_id = cur.fetchone()[0]
-                else:
-                    doctor_id = doc[0]
-            
-            # 2. Ensure dummy patient exists if 0
-            if patient_id == 0:
-                cur.execute("SELECT id FROM patients LIMIT 1")
-                pat = cur.fetchone()
-                if not pat:
-                    cur.execute("INSERT INTO patients (name, age) VALUES ('John Doe', 30) RETURNING id")
-                    patient_id = cur.fetchone()[0]
-                    # Map to the new Many-to-Many junction table
-                    cur.execute("INSERT INTO doctor_patients (doctor_id, patient_id) VALUES (%s, %s)", (doctor_id, patient_id))
-                else:
-                    patient_id = pat[0]
+            # Ensure doctor and patient exist and are mapped.
+            cur.execute("SELECT 1 FROM doctors WHERE id = %s", (doctor_id,))
+            if not cur.fetchone():
+                raise ValueError("Doctor record not found.")
+
+            cur.execute("SELECT 1 FROM patients WHERE id = %s", (patient_id,))
+            if not cur.fetchone():
+                raise ValueError("Patient record not found.")
+
+            cur.execute(
+                """
+                SELECT 1
+                FROM doctor_patients
+                WHERE doctor_id = %s AND patient_id = %s
+                LIMIT 1
+                """,
+                (doctor_id, patient_id),
+            )
+            if not cur.fetchone():
+                raise ValueError("Doctor is not assigned to this patient.")
 
             # 3. Insert Case
             cur.execute("""
@@ -377,17 +450,61 @@ def save_prescription(case_id: int, notes: str, items: list):
 def get_doctor_cases(doctor_id: int):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT c.id, p.name, ds.name as predicted_disease_name, c.created_at
-                FROM cases c 
-                JOIN patients p ON c.patient_id = p.id
-                JOIN diseases ds ON c.predicted_disease_id = ds.id
-                WHERE c.doctor_id = %s
-                ORDER BY c.created_at DESC
-                LIMIT 50
-            """, (doctor_id,))
-            
-            cases = [{"id": r[0], "patient_name": r[1], "disease": r[2], "date": str(r[3])} for r in cur.fetchall()]
+            is_admin = _is_admin_doctor(cur, doctor_id)
+
+            if is_admin:
+                cur.execute("""
+                    SELECT c.id, p.id, p.name, ds.name as confirmed_disease_name, c.severity_json, c.created_at, pr.id, d.name, c.image_path
+                    FROM cases c 
+                    JOIN patients p ON c.patient_id = p.id
+                    JOIN diseases ds ON c.confirmed_disease_id = ds.id
+                    JOIN doctors d ON c.doctor_id = d.id
+                    LEFT JOIN prescriptions pr ON pr.case_id = c.id
+                    ORDER BY c.created_at DESC
+                    LIMIT 200
+                """)
+            else:
+                cur.execute("""
+                    SELECT c.id, p.id, p.name, ds.name as confirmed_disease_name, c.severity_json, c.created_at, pr.id, d.name, c.image_path
+                    FROM cases c 
+                    JOIN patients p ON c.patient_id = p.id
+                    JOIN diseases ds ON c.confirmed_disease_id = ds.id
+                    JOIN doctors d ON c.doctor_id = d.id
+                    LEFT JOIN prescriptions pr ON pr.case_id = c.id
+                    WHERE c.doctor_id = %s
+                    ORDER BY c.created_at DESC
+                    LIMIT 50
+                """, (doctor_id,))
+
+            cases = []
+            for r in cur.fetchall():
+                severity_label = "N/A"
+                raw_severity = r[4]
+
+                if isinstance(raw_severity, dict):
+                    severity_label = raw_severity.get("raw_text") or raw_severity.get("label") or "N/A"
+                elif isinstance(raw_severity, str):
+                    try:
+                        parsed = json.loads(raw_severity)
+                        if isinstance(parsed, dict):
+                            severity_label = parsed.get("raw_text") or parsed.get("label") or "N/A"
+                        else:
+                            severity_label = raw_severity
+                    except Exception:
+                        severity_label = raw_severity
+
+                cases.append({
+                    "case_id": r[0],
+                    "patient_id": r[1],
+                    "patient_name": r[2],
+                    "disease": r[3],
+                    "severity": severity_label,
+                    "date": str(r[5]),
+                    "has_prescription": bool(r[6]),
+                    "doctor_name": r[7] or "",
+                    "image_path": r[8] or "",
+                })
+
             return cases
 
 def get_patient_history(patient_id: int):

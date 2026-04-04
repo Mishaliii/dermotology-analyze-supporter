@@ -43,7 +43,11 @@ def create_tables():
                         name TEXT NOT NULL,
                         email TEXT UNIQUE NOT NULL,
                         license_number TEXT,
-                        clinic_name TEXT
+                        clinic_name TEXT,
+                        password_hash TEXT,
+                        is_admin BOOLEAN DEFAULT FALSE,
+                        approved BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
 
