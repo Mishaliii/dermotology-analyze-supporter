@@ -10,6 +10,8 @@ import uuid
 import time
 import re
 import threading
+import json
+from datetime import datetime, timezone
 
 # --------------------------------------------------
 # PATH SETUP
@@ -257,8 +259,28 @@ FRONTEND_DIR = os.path.join(ROOT_DIR, "Frontend")
 FRONTEND_DIST_DIR = os.path.join(FRONTEND_DIR, "dist")
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 TEMP_DIR = os.path.join(ROOT_DIR, "temp")
+SHADOW_LOG_PATH = os.path.join(TEMP_DIR, "analysis_shadow_log.jsonl")
+SHADOW_CASE_LOG_PATH = os.path.join(TEMP_DIR, "analysis_case_shadow_log.jsonl")
+_shadow_log_lock = threading.Lock()
 
 os.makedirs(TEMP_DIR, exist_ok=True)
+
+
+def _append_shadow_log(path: str, payload: Dict[str, Any]) -> None:
+    """
+    Best-effort append-only shadow logging for threshold calibration.
+    Must never break primary clinical workflow.
+    """
+    try:
+        event = {
+            "ts_utc": datetime.now(timezone.utc).isoformat(),
+            **payload,
+        }
+        with _shadow_log_lock:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(event, ensure_ascii=True, default=str) + "\n")
+    except Exception as exc:
+        print(f"[SHADOW_LOG] skipped: {exc}")
 
 # --------------------------------------------------
 # STATIC MOUNTS
@@ -285,7 +307,14 @@ app.mount("/temp", StaticFiles(directory=TEMP_DIR), name="temp")
 async def home():
     frontend_index = os.path.join(FRONTEND_DIST_DIR, "index.html")
     if os.path.exists(frontend_index):
-        return FileResponse(frontend_index)
+        return FileResponse(
+            frontend_index,
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
 
     return "<h2>Frontend not built. Run: cd Frontend && npm install && npm run build</h2>"
 
@@ -802,6 +831,29 @@ async def analyze(
         uploaded_web_path = f"/temp/{unique_name}"
         results["uploaded_image"] = uploaded_web_path
 
+        # Shadow logging for non-disease threshold calibration.
+        try:
+            cls_knn = results.get("cls_knn") if isinstance(results, dict) else None
+            top_diseases = []
+            if isinstance(cls_knn, dict):
+                raw_top = cls_knn.get("top_diseases") or []
+                for item in raw_top[:5]:
+                    if isinstance(item, (list, tuple)) and len(item) >= 2:
+                        top_diseases.append({"disease": str(item[0]), "score": float(item[1] or 0.0)})
+
+            _append_shadow_log(
+                SHADOW_LOG_PATH,
+                {
+                    "event": "analyze",
+                    "uploaded_image": uploaded_web_path,
+                    "original_filename": file.filename,
+                    "analysis_decision": results.get("analysis_decision") if isinstance(results, dict) else None,
+                    "top_diseases": top_diseases,
+                },
+            )
+        except Exception as shadow_exc:
+            print(f"[SHADOW_LOG] analyze event skipped: {shadow_exc}")
+
         # Queue low-confidence or unknown analyses for admin review.
         try:
             suggested_disease = "Unknown"
@@ -951,6 +1003,32 @@ def api_create_case(req: CaseCreateReq):
             severity_json=req.severity_json,
             ai_confidence=req.ai_confidence
         )
+
+        # Shadow log clinical confirmation to correlate with analyze decisions.
+        try:
+            severity_numeric = None
+            if isinstance(req.severity_json, dict):
+                severity_numeric = req.severity_json.get("numeric")
+
+            _append_shadow_log(
+                SHADOW_CASE_LOG_PATH,
+                {
+                    "event": "create_case",
+                    "case_id": case_info.get("case_id"),
+                    "doctor_id": req.doctor_id,
+                    "patient_id": req.patient_id,
+                    "image_path": req.image_path,
+                    "predicted_disease_name": req.predicted_disease_name,
+                    "confirmed_disease_name": req.confirmed_disease_name,
+                    "predicted_disease_id": p_id,
+                    "confirmed_disease_id": c_id,
+                    "ai_confidence": req.ai_confidence,
+                    "severity_numeric": severity_numeric,
+                },
+            )
+        except Exception as shadow_case_exc:
+            print(f"[SHADOW_LOG] create_case event skipped: {shadow_case_exc}")
+
         return {
             "success": True, 
             "case_id": case_info["case_id"],
@@ -1030,7 +1108,14 @@ async def spa_fallback(full_path: str):
 
     frontend_index = os.path.join(FRONTEND_DIST_DIR, "index.html")
     if os.path.exists(frontend_index):
-        return FileResponse(frontend_index)
+        return FileResponse(
+            frontend_index,
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
 
     return HTMLResponse("Frontend not available", status_code=404)
 

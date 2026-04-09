@@ -207,6 +207,87 @@ def get_dynamic_top_diseases(ranked_diseases, max_diseases=5, threshold_ratio=0.
     return result
 
 
+def build_analysis_decision(similar_cases):
+    """
+    Build a conservative triage decision for non-disease detection.
+    This is additive metadata only and does not alter disease suggestions.
+    """
+    if not similar_cases:
+        return {
+            "candidate_status": "no_disease_candidate",
+            "decision_confidence": 0.95,
+            "reject_reasons": ["no_similar_cases"],
+            "signals": {
+                "top1_similarity": 0.0,
+                "top2_similarity": 0.0,
+                "avg_top3_similarity": 0.0,
+                "top1_top2_gap": 0.0,
+            },
+        }
+
+    disease_max_sim = {}
+    for case in similar_cases:
+        disease = str(case.get("disease") or "Unknown")
+        sim = float(case.get("similarity") or 0.0)
+        prev = disease_max_sim.get(disease, 0.0)
+        if sim > prev:
+            disease_max_sim[disease] = sim
+
+    ranked = sorted(disease_max_sim.items(), key=lambda x: -x[1])
+    top_scores = [float(score) for _, score in ranked[:3]]
+
+    top1 = top_scores[0] if len(top_scores) > 0 else 0.0
+    top2 = top_scores[1] if len(top_scores) > 1 else 0.0
+    avg_top3 = float(sum(top_scores) / len(top_scores)) if top_scores else 0.0
+    gap = top1 - top2
+
+    # Conservative defaults; tune later with shadow logs.
+    t_top1 = 0.58
+    t_avg3 = 0.52
+    t_gap = 0.06
+
+    c_top1 = top1 < t_top1
+    c_avg3 = avg_top3 < t_avg3
+    c_gap = gap < t_gap
+
+    reasons = []
+    if c_top1:
+        reasons.append("low_top1_similarity")
+    if c_avg3:
+        reasons.append("low_avg_top3_similarity")
+    if c_gap:
+        reasons.append("small_top1_top2_gap")
+
+    true_count = sum([1 if c_top1 else 0, 1 if c_avg3 else 0, 1 if c_gap else 0])
+
+    if true_count == 3:
+        status = "no_disease_candidate"
+        confidence = 0.85
+    elif true_count >= 2:
+        status = "uncertain"
+        confidence = 0.6
+    else:
+        status = "likely_disease"
+        confidence = 0.8
+
+    return {
+        "candidate_status": status,
+        "decision_confidence": confidence,
+        "reject_reasons": reasons,
+        "signals": {
+            "top1_similarity": round(top1, 4),
+            "top2_similarity": round(top2, 4),
+            "avg_top3_similarity": round(avg_top3, 4),
+            "top1_top2_gap": round(gap, 4),
+        },
+        "thresholds": {
+            "top1_similarity_lt": t_top1,
+            "avg_top3_similarity_lt": t_avg3,
+            "top1_top2_gap_lt": t_gap,
+        },
+    }
+
+
 def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     load_models()
     image = Image.open(image_path).convert("RGB")
@@ -225,12 +306,14 @@ def analyze_skin_image(image_path: str, knn_k=KNN_K, search_k=SEARCH_K):
     # This makes the initial /analyze response near-instant (no FastSAM on CPU).
     # The frontend will call /score_disease when the user clicks a disease chip.
     severity_assessments = []
+    analysis_decision = build_analysis_decision(m1_cases[:30])
 
     return {
         "cls_knn": {
             "top_diseases": dynamic_m1_ranks,
             "similar_cases": m1_cases[:30]
         },
+        "analysis_decision": analysis_decision,
         "severity_assessments": severity_assessments,
         # Pass back the uploaded image path so the on-demand scorer can use it
         "analyzed_image_path": image_path
