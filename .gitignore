@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+*.txt
+
+# Data / ML
+data/
+embeddings/
+temp/
+
+# Models
+*.pt
+*.pth
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
