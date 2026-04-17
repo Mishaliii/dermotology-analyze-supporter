@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 from transformers import AutoImageProcessor, AutoModel
+import traceback
 
 # =============================
 # CONFIG
@@ -18,8 +19,34 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # =============================
 # LOAD MODEL
 # =============================
-processor = AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=False)
-model = AutoModel.from_pretrained(MODEL_NAME)
+def _load_transformers_assets(disable_ssl: bool = False):
+    if disable_ssl:
+        os.environ["HF_HUB_DISABLE_SSL_VERIFICATION"] = "1"
+    else:
+        os.environ.pop("HF_HUB_DISABLE_SSL_VERIFICATION", None)
+
+    try:
+        return (
+            AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=False, local_files_only=True),
+            AutoModel.from_pretrained(MODEL_NAME, local_files_only=True),
+        )
+    except Exception:
+        return (
+            AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=False),
+            AutoModel.from_pretrained(MODEL_NAME),
+        )
+
+try:
+    processor, model = _load_transformers_assets(disable_ssl=False)
+except Exception as first_exc:
+    print(f"[WARN] embeddings.py local/standard load failed, retrying with SSL verification disabled: {first_exc}")
+    try:
+        processor, model = _load_transformers_assets(disable_ssl=True)
+    except Exception:
+        print("[ERROR] embeddings.py DINOv2 load failed on both attempts:")
+        traceback.print_exc()
+        raise
+
 model.eval().to(DEVICE)
 torch.set_grad_enabled(False)
 

@@ -3,6 +3,7 @@ from PIL import Image
 import os
 from collections import defaultdict
 import psycopg
+import traceback
 
 # Lazy modules (loaded on demand)
 torch = None
@@ -54,8 +55,34 @@ def load_models():
     torch = _torch
     faiss = _faiss
 
-    processor = AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=False)
-    model = AutoModel.from_pretrained(MODEL_NAME)
+    def _load_transformers_assets(disable_ssl: bool = False):
+        if disable_ssl:
+            os.environ["HF_HUB_DISABLE_SSL_VERIFICATION"] = "1"
+        else:
+            os.environ.pop("HF_HUB_DISABLE_SSL_VERIFICATION", None)
+
+        try:
+            return (
+                AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=False, local_files_only=True),
+                AutoModel.from_pretrained(MODEL_NAME, local_files_only=True),
+            )
+        except Exception:
+            return (
+                AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=False),
+                AutoModel.from_pretrained(MODEL_NAME),
+            )
+
+    try:
+        processor, model = _load_transformers_assets(disable_ssl=False)
+    except Exception as first_exc:
+        print(f"[WARN] DINOv2 local/standard load failed, retrying with SSL verification disabled: {first_exc}")
+        try:
+            processor, model = _load_transformers_assets(disable_ssl=True)
+        except Exception as second_exc:
+            print("[ERROR] DINOv2 load failed on both attempts:")
+            traceback.print_exc()
+            raise second_exc
+
     model.eval().to(DEVICE)
     torch.set_grad_enabled(False)
     
