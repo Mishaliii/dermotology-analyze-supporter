@@ -20,3 +20,6 @@ temp/
 
 # OS
 .DS_Store
+.venv/
+venv/
+Frontend/.venv/
