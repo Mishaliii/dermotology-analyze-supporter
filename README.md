@@ -155,10 +155,10 @@ Reference medical images are **not** distributed with this repository. Please ch
 
 ## Author
 
-**Mishal**: MCA graduate (2026), AI/ML and backend developer.
-[LinkedIn] | [Email]
+**Mishal**: MCA graduate (2026), AI/ML,backend developer adn Fullstack Developer.
+[ https://www.linkedin.com/in/muhammedmishal13/ ] | [muhammedmishalkpm13@gmail.com]
 
-Uploading Recording 2026-10-06 163523_squished.mp4…
+
 
 
 
